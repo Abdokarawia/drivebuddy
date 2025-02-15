@@ -1,6 +1,7 @@
 import 'package:drivebuddy/Core/Utils/App%20Colors.dart';
 import 'package:drivebuddy/Features/Forget_Password/Presentation/forget_password_view.dart';
 import 'package:drivebuddy/Features/Sign_up/presenation/sign_up_view.dart';
+import 'package:drivebuddy/Features/Tabs/Presenation/tabs_view.dart';
 import 'package:drivebuddy/core/Utils/Shared%20Methods.dart';
 import 'package:flutter/material.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
@@ -96,7 +97,11 @@ class LoginView extends StatelessWidget {
                     SizedBox(height: 20),
                     AnimatedButton(
                       text: 'LOG IN',
-                      onPressed: () {},
+                      onPressed: () {
+
+                        navigateAndFinished(context, TabsScreen());
+
+                      },
                       delay: 900,
                     ),
                     SizedBox(height: 12),
@@ -179,11 +184,11 @@ class LoginBackground extends StatelessWidget {
           ),
         ),
         Positioned(
-          top: 130,
+          top: 155,
           right: 20,
           child: SizedBox(
-            width: 150,  // Adjust as needed
-            height: 150, // Adjust as needed
+            width: 130,  // Adjust as needed
+            height: 130, // Adjust as needed
             child: AnimatedLogo(),
           ),
         ),

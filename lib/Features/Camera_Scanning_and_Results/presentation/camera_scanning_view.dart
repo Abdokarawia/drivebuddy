@@ -1,236 +1,388 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:iconsax/iconsax.dart';
+import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 
-class HistoryScreen extends StatefulWidget {
+class CameraScanScreen extends StatefulWidget {
+  const CameraScanScreen({super.key});
+
   @override
-  _HistoryScreenState createState() => _HistoryScreenState();
+  _CameraScanScreenState createState() => _CameraScanScreenState();
 }
 
-class _HistoryScreenState extends State<HistoryScreen> {
-  String _selectedFilter = 'All Time';
-  final List<Map<String, dynamic>> _historyItems = [
-    {
-      'date': DateTime.now(),
-      'title': 'Automatic shift lock',
-      'subtitle': 'Regular system check completed',
-      'time': '08:30 AM',
-      'icon': Icons.lock_outline,
-      'status': 'Checked',
-      'statusColor': Colors.green,
-    },
-    {
-      'date': DateTime.now(),
-      'title': 'Sport mode indicator',
-      'subtitle': 'System response test completed',
-      'time': '10:15 AM',
-      'icon': Icons.speed,
-      'status': 'Warning',
-      'statusColor': Colors.orange,
-    },
-    {
-      'date': DateTime.now().subtract(Duration(days: 1)),
-      'title': 'Battery check',
-      'subtitle': 'Power system diagnostics completed',
-      'time': '03:45 PM',
-      'icon': Icons.battery_charging_full,
-      'status': 'Critical',
-      'statusColor': Colors.red,
-    },
-    {
-      'date': DateTime.now().subtract(Duration(days: 1)),
-      'title': 'Auto lock system',
-      'subtitle': 'Security check completed',
-      'time': '05:30 PM',
-      'icon': Icons.security,
-      'status': 'Checked',
-      'statusColor': Colors.green,
-    },
-  ];
+class _CameraScanScreenState extends State<CameraScanScreen> {
+  CameraController? _cameraController; // Make it nullable
+  bool _isFlashOn = false;
+  bool _isCameraInitialized = false; // Track camera initialization status
 
-  List<Map<String, dynamic>> get _filteredHistoryItems {
-    final now = DateTime.now();
-    switch (_selectedFilter) {
-      case 'Today':
-        return _historyItems.where((item) => _isSameDay(item['date'], now)).toList();
-      case 'Yesterday':
-        return _historyItems.where((item) => _isSameDay(item['date'], now.subtract(Duration(days: 1)))).toList();
-      case 'This Week':
-        return _historyItems.where((item) => _isSameWeek(item['date'], now)).toList();
-      case 'This Month':
-        return _historyItems.where((item) => _isSameMonth(item['date'], now)).toList();
-      default:
-        return _historyItems;
+  @override
+  void initState() {
+    super.initState();
+    _initializeCamera();
+  }
+
+  Future<void> _initializeCamera() async {
+    try {
+      final cameras = await availableCameras();
+      final firstCamera = cameras.first;
+
+      _cameraController = CameraController(
+        firstCamera,
+        ResolutionPreset.high,
+      );
+
+      await _cameraController!.initialize();
+      if (!mounted) return;
+
+      setState(() {
+        _isCameraInitialized = true; // Update initialization status
+      });
+    } catch (e) {
+      print("Error initializing camera: $e");
+      setState(() {
+        _isCameraInitialized = false; // Handle initialization failure
+      });
     }
   }
 
-  bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year && date1.month == date2.month && date1.day == date2.day;
+  @override
+  void dispose() {
+    _cameraController?.dispose(); // Dispose only if initialized
+    super.dispose();
   }
 
-  bool _isSameWeek(DateTime date1, DateTime date2) {
-    final startOfWeek = date2.subtract(Duration(days: date2.weekday - 1));
-    final endOfWeek = startOfWeek.add(Duration(days: 6));
-    return date1.isAfter(startOfWeek) && date1.isBefore(endOfWeek);
+  Future<void> _toggleFlash() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+
+    setState(() {
+      _isFlashOn = !_isFlashOn;
+    });
+    await _cameraController!.setFlashMode(
+      _isFlashOn ? FlashMode.torch : FlashMode.off,
+    );
   }
 
-  bool _isSameMonth(DateTime date1, DateTime date2) {
-    return date1.year == date2.year && date1.month == date2.month;
+  Future<void> _captureImage() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+
+    try {
+      final image = await _cameraController!.takePicture();
+      // Navigate to results screen with the captured image
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ScanResultsScreen(imagePath: image.path),
+        ),
+      );
+    } catch (e) {
+      print("Error capturing image: $e");
+    }
+  }
+
+  Future<void> _openGallery() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      // Navigate to results screen with the selected image
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ScanResultsScreen(imagePath: pickedFile.path),
+        ),
+      );
+    }
+  }
+
+  Future<void> _switchCamera() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+
+    final cameras = await availableCameras();
+    final newCamera = cameras.firstWhere(
+          (camera) => camera.lensDirection != _cameraController!.description.lensDirection,
+    );
+
+    _cameraController = CameraController(
+      newCamera,
+      ResolutionPreset.high,
+    );
+
+    await _cameraController!.initialize();
+    if (!mounted) return;
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFFFF3EE),
-      appBar: _buildAppBar(),
-      body: _buildBody(),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      elevation: 0,
-      backgroundColor: Color(0xFFE67E5E),
-      title: Text(
-        'All History',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      actions: [
-        IconButton(
-          icon: Icon(Icons.filter_list, color: Colors.white),
-          onPressed: () {},
-        ),
-        IconButton(
-          icon: Icon(Icons.search, color: Colors.white),
-          onPressed: () {},
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBody() {
-    return CustomScrollView(
-      slivers: [
-        _buildDateFilter(),
-        _buildHistoryList(),
-      ],
-    );
-  }
-
-  Widget _buildDateFilter() {
-    return SliverToBoxAdapter(
-      child: Container(
-        height: 50,
-        margin: EdgeInsets.symmetric(vertical: 16),
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(horizontal: 16),
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
           children: [
-            _buildDateChip('All Time', isSelected: _selectedFilter == 'All Time'),
-            _buildDateChip('Today', isSelected: _selectedFilter == 'Today'),
-            _buildDateChip('Yesterday', isSelected: _selectedFilter == 'Yesterday'),
-            _buildDateChip('This Week', isSelected: _selectedFilter == 'This Week'),
-            _buildDateChip('This Month', isSelected: _selectedFilter == 'This Month'),
+            if (_isCameraInitialized)
+              CameraPreview(_cameraController!)
+            else
+              Center(
+                child: CircularProgressIndicator(),
+              ),
+            Column(
+              children: [
+                _buildHeader(context),
+                Expanded(child: _buildScanOverlay()),
+                _buildBottomControls(context),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDateChip(String label, {bool isSelected = false}) {
+  Widget _buildHeader(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(right: 8),
-      child: FilterChip(
-        selected: isSelected,
-        label: Text(label),
-        onSelected: (bool selected) {
-          setState(() {
-            _selectedFilter = label;
-          });
-        },
-        selectedColor: Color(0xFFE67E5E),
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : Colors.black87,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+      padding: EdgeInsets.all(20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: Icon(Icons.close, color: Colors.white, size: 28),
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black38,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                Icon(Iconsax.scan, color: Colors.white, size: 16),
+                SizedBox(width: 8),
+                Text(
+                  'Point at warning lights',
+                  style: TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _toggleFlash,
+            icon: Icon(
+              _isFlashOn ? Icons.flash_on : Icons.flash_off,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildHistoryList() {
-    final groupedItems = _groupHistoryItemsByDate(_filteredHistoryItems);
+  Widget _buildScanOverlay() {
+    return Container(
+      margin: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        border: Border.all(color: Color(0xFFE67E5E), width: 2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Iconsax.scan,
+            color: Color(0xFFE67E5E),
+            size: 48,
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Position dashboard within frame',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-            (context, index) {
-          final date = groupedItems.keys.elementAt(index);
-          final items = groupedItems[date]!;
+  Widget _buildBottomControls(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          IconButton(
+            onPressed: _openGallery,
+            icon: Icon(Iconsax.gallery, color: Colors.white, size: 28),
+          ),
+          GestureDetector(
+            onTap: _captureImage,
+            child: Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Color(0xFFE67E5E), width: 3),
+                color: Colors.white,
+              ),
+              child: Center(
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFE67E5E),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: _switchCamera,
+            icon: Icon(Iconsax.camera, color: Colors.white, size: 28),
+          ),
+        ],
+      ),
+    );
+  }
+}
+// scan_results_screen.dart
+class ScanResultsScreen extends StatelessWidget {
+  final String imagePath;
 
-          return Column(
+  const ScanResultsScreen({super.key, required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Color(0xFFFFF3EE),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Scan Results',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.share_outlined, color: Colors.black),
+            onPressed: () {
+              // Implement share functionality
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHistoryGroup(DateFormat('MMMM d, y').format(date)),
-              ...items.map((item) => _buildHistoryItem(
-                title: item['title'],
-                subtitle: item['subtitle'],
-                time: item['time'],
-                icon: item['icon'],
-                status: item['status'],
-                statusColor: item['statusColor'],
-              )),
+              _buildScanSummary(),
+              SizedBox(height: 20),
+              _buildDetailedFindings(),
+              SizedBox(height: 20),
+              _buildRecommendedActions(),
             ],
-          );
-        },
-        childCount: groupedItems.length,
-      ),
-    );
-  }
-
-  Map<DateTime, List<Map<String, dynamic>>> _groupHistoryItemsByDate(List<Map<String, dynamic>> items) {
-    final Map<DateTime, List<Map<String, dynamic>>> groupedItems = {};
-
-    for (var item in items) {
-      final date = DateTime(item['date'].year, item['date'].month, item['date'].day);
-      if (!groupedItems.containsKey(date)) {
-        groupedItems[date] = [];
-      }
-      groupedItems[date]!.add(item);
-    }
-
-    return groupedItems;
-  }
-
-  Widget _buildHistoryGroup(String title) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHistoryItem({
-    required String title,
-    required String subtitle,
-    required String time,
-    required IconData icon,
-    required String status,
-    required Color statusColor,
-  }) {
+  Widget _buildScanSummary() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Color(0xFFE67E5E),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Iconsax.scan, color: Colors.white),
+              SizedBox(width: 10),
+              Text(
+                'Scan Complete',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 15),
+          Text(
+            '2 issues detected',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 5),
+          Text(
+            'Scanned on Feb 14, 2025 at 10:30 AM',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailedFindings() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Detailed Findings',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        SizedBox(height: 15),
+        _buildFindingItem(
+          'Check Engine Light',
+          'P0300 - Random/Multiple Cylinder Misfire Detected',
+          Icons.error_outline,
+          Colors.orange,
+        ),
+        SizedBox(height: 10),
+        _buildFindingItem(
+          'Low Tire Pressure',
+          'Rear right tire: 28 PSI (32 PSI recommended)',
+          Icons.warning_amber_rounded,
+          Colors.red,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFindingItem(
+      String title,
+      String description,
+      IconData icon,
+      Color color,
+      ) {
+    return Container(
+      padding: EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -242,125 +394,114 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: EdgeInsets.all(16),
-        leading: Container(
-          padding: EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Color(0xFFFFF3EE),
-            borderRadius: BorderRadius.circular(12),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color),
           ),
-          child: Icon(
-            icon,
-            color: Color(0xFFE67E5E),
-            size: 24,
+          SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                status,
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              time,
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: Colors.grey[400],
-        ),
-        onTap: () {},
+        ],
       ),
     );
   }
-}
 
-class CustomTabIndicator extends Decoration {
-  final double radius;
-  final Color color;
-
-  const CustomTabIndicator({
-    this.radius = 8,
-    this.color = const Color(0xFFE67E5E),
-  });
-
-  @override
-  BoxPainter createBoxPainter([VoidCallback? onChanged]) {
-    return _CustomPainter(
-      radius: radius,
-      color: color,
+  Widget _buildRecommendedActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Recommended Actions',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        SizedBox(height: 15),
+        _buildActionButton(
+          'Schedule Service',
+          'Find nearest service center',
+          Iconsax.calendar,
+        ),
+        SizedBox(height: 10),
+        _buildActionButton(
+          'View Service History',
+          'Check previous repairs',
+          Iconsax.clipboard_text,
+        ),
+      ],
     );
   }
-}
 
-class _CustomPainter extends BoxPainter {
-  final double radius;
-  final Color color;
-
-  _CustomPainter({
-    required this.radius,
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
-    final Paint paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final Rect rect = offset & configuration.size!;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          rect.left,
-          rect.bottom - radius,
-          rect.width,
-          radius,
-        ),
-        Radius.circular(radius),
+  Widget _buildActionButton(String title, String subtitle, IconData icon) {
+    return Container(
+      padding: EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
-      paint,
+      child: Row(
+        children: [
+          Icon(icon, color: Color(0xFFE67E5E)),
+          SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right, color: Colors.grey),
+        ],
+      ),
     );
   }
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
-class HistoryScreen extends StatelessWidget {
+class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -16,7 +15,7 @@ class HistoryScreen extends StatelessWidget {
       elevation: 0,
       backgroundColor: Color(0xFFE67E5E),
       title: Text(
-        'All History',
+        'User Profile',
         style: TextStyle(
           color: Colors.white,
           fontSize: 20,
@@ -25,11 +24,7 @@ class HistoryScreen extends StatelessWidget {
       ),
       actions: [
         IconButton(
-          icon: Icon(Icons.filter_list, color: Colors.white),
-          onPressed: () {},
-        ),
-        IconButton(
-          icon: Icon(Icons.search, color: Colors.white),
+          icon: Icon(Icons.logout_rounded, color: Colors.white),
           onPressed: () {},
         ),
       ],
@@ -37,80 +32,98 @@ class HistoryScreen extends StatelessWidget {
   }
 
   Widget _buildBody() {
-    return CustomScrollView(
-      slivers: [
-        _buildDateFilter(),
-        _buildStatusFilter(),
-        _buildHistoryList(),
-      ],
-    );
-  }
-
-  Widget _buildDateFilter() {
-    return SliverToBoxAdapter(
-      child: Container(
-        height: 50,
-        margin: EdgeInsets.symmetric(vertical: 16),
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          children: [
-            _buildDateChip('All Time', isSelected: true),
-            _buildDateChip('Today'),
-            _buildDateChip('Yesterday'),
-            _buildDateChip('This Week'),
-            _buildDateChip('This Month'),
-          ],
-        ),
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _buildProfileHeader(),
+          _buildProfileInfo(),
+          _buildPreferences(),
+          _buildVehicleInfo(),
+          _buildFooter(),
+        ],
       ),
     );
   }
 
-  Widget _buildDateChip(String label, {bool isSelected = false}) {
+  Widget _buildProfileHeader() {
     return Container(
-      margin: EdgeInsets.only(right: 8),
-      child: FilterChip(
-        selected: isSelected,
-        label: Text(label),
-        onSelected: (bool selected) {},
-        selectedColor: Color(0xFFE67E5E),
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : Colors.black87,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+      padding: EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Color(0xFFE67E5E),
+                    width: 3,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 55,
+                  backgroundColor: Colors.white,
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 80,
+                    height: 80,
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFE67E5E),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.camera_alt,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Reman Smith',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          Text(
+            'Premium Member',
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xFFE67E5E),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildStatusFilter() {
-    return SliverToBoxAdapter(
-      child: Container(
-        height: 80,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          children: [
-            _buildStatusCard('All', '158', Icons.list_alt, isSelected: true),
-            _buildStatusCard('Warnings', '23', Icons.warning_amber),
-            _buildStatusCard('Checks', '89', Icons.check_circle),
-            _buildStatusCard('Issues', '46', Icons.error),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusCard(String title, String count, IconData icon, {bool isSelected = false}) {
+  Widget _buildProfileInfo() {
     return Container(
-      width: 120,
-      margin: EdgeInsets.only(right: 12),
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isSelected ? Color(0xFFE67E5E) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -120,102 +133,43 @@ class HistoryScreen extends StatelessWidget {
         ],
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: isSelected ? Colors.white : Color(0xFFE67E5E),
-            size: 24,
+          _buildTextField(
+            label: 'Username',
+            value: 'remansmith',
+            icon: Icons.person_outline,
           ),
-          SizedBox(height: 8),
-          Text(
-            title,
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.black87,
-              fontWeight: FontWeight.w500,
-            ),
+          _buildDivider(),
+          _buildTextField(
+            label: 'Email',
+            value: 'reman.smith@example.com',
+            icon: Icons.email_outlined,
           ),
-          Text(
-            count,
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.black87,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+          _buildDivider(),
+          _buildTextField(
+            label: 'Phone Number',
+            value: '+1 234 567 8900',
+            icon: Icons.phone_outlined,
+          ),
+          _buildDivider(),
+          _buildTextField(
+            label: 'Password',
+            value: '••••••••',
+            icon: Icons.lock_outline,
+            isPassword: true,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHistoryList() {
-    return SliverList(
-      delegate: SliverChildListDelegate([
-        _buildHistoryGroup('Today'),
-        _buildHistoryItem(
-          title: 'Automatic shift lock',
-          subtitle: 'Regular system check completed',
-          time: '08:30 AM',
-          icon: Icons.lock_outline,
-          status: 'Checked',
-          statusColor: Colors.green,
-        ),
-        _buildHistoryItem(
-          title: 'Sport mode indicator',
-          subtitle: 'System response test completed',
-          time: '10:15 AM',
-          icon: Icons.speed,
-          status: 'Warning',
-          statusColor: Colors.orange,
-        ),
-        _buildHistoryGroup('Yesterday'),
-        _buildHistoryItem(
-          title: 'Battery check',
-          subtitle: 'Power system diagnostics completed',
-          time: '03:45 PM',
-          icon: Icons.battery_charging_full,
-          status: 'Critical',
-          statusColor: Colors.red,
-        ),
-        _buildHistoryItem(
-          title: 'Auto lock system',
-          subtitle: 'Security check completed',
-          time: '05:30 PM',
-          icon: Icons.security,
-          status: 'Checked',
-          statusColor: Colors.green,
-        ),
-      ]),
-    );
-  }
-
-  Widget _buildHistoryGroup(String title) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHistoryItem({
-    required String title,
-    required String subtitle,
-    required String time,
-    required IconData icon,
-    required String status,
-    required Color statusColor,
-  }) {
+  Widget _buildPreferences() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -224,125 +178,243 @@ class HistoryScreen extends StatelessWidget {
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: EdgeInsets.all(16),
-        leading: Container(
-          padding: EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Color(0xFFFFF3EE),
-            borderRadius: BorderRadius.circular(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Preferences',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
           ),
-          child: Icon(
-            icon,
-            color: Color(0xFFE67E5E),
-            size: 24,
+          SizedBox(height: 16),
+          _buildPreferenceSwitch(
+            'Push Notifications',
+            'Receive notifications about vehicle status',
+            true,
           ),
-        ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
+          _buildPreferenceSwitch(
+            'Email Updates',
+            'Get weekly reports and updates',
+            false,
+          ),
+          _buildPreferenceSwitch(
+            'Dark Mode',
+            'Switch to dark theme',
+            false,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVehicleInfo() {
+    return Container(
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Vehicle Information',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          SizedBox(height: 16),
+          _buildVehicleDetail('Model', 'Toyota Camry 2024'),
+          _buildVehicleDetail('License Plate', 'ABC 123'),
+          _buildVehicleDetail('VIN', '1HGCM82633A123456'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFFE67E5E),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () {},
               child: Text(
-                title,
+                'SAVE CHANGES',
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
                   fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
             ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                status,
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 8),
-            Text(
-              subtitle,
+          ),
+          SizedBox(height: 16),
+          TextButton(
+            onPressed: () {},
+            child: Text(
+              'Delete Account',
               style: TextStyle(
-                color: Colors.grey[600],
+                color: Colors.red,
                 fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            SizedBox(height: 4),
-            Text(
-              time,
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: Colors.grey[400],
-        ),
-        onTap: () {},
+          ),
+        ],
       ),
     );
   }
-}
 
-class CustomTabIndicator extends Decoration {
-  final double radius;
-  final Color color;
-
-  const CustomTabIndicator({
-    this.radius = 8,
-    this.color = const Color(0xFFE67E5E),
-  });
-
-  @override
-  BoxPainter createBoxPainter([VoidCallback? onChanged]) {
-    return _CustomPainter(
-      radius: radius,
-      color: color,
+  Widget _buildTextField({
+    required String label,
+    required String value,
+    required IconData icon,
+    bool isPassword = false,
+  }) {
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Color(0xFFFFF3EE),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              color: Color(0xFFE67E5E),
+              size: 20,
+            ),
+          ),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              isPassword ? Icons.visibility_outlined : Icons.edit_outlined,
+              color: Color(0xFFE67E5E),
+              size: 20,
+            ),
+            onPressed: () {},
+          ),
+        ],
+      ),
     );
   }
-}
 
-class _CustomPainter extends BoxPainter {
-  final double radius;
-  final Color color;
+  Widget _buildDivider() {
+    return Divider(
+      color: Colors.grey[200],
+      height: 32,
+      thickness: 1,
+    );
+  }
 
-  _CustomPainter({
-    required this.radius,
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
-    final Paint paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final Rect rect = offset & configuration.size!;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          rect.left,
-          rect.bottom - radius,
-          rect.width,
-          radius,
-        ),
-        Radius.circular(radius),
+  Widget _buildPreferenceSwitch(String title, String subtitle, bool value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: (bool newValue) {},
+            activeColor: Color(0xFFE67E5E),
+          ),
+        ],
       ),
-      paint,
+    );
+  }
+
+  Widget _buildVehicleDetail(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -36,6 +36,10 @@ class AppColorsData {
     },
   );
   static const primaryColor = Color(0xFFDD7649);
+  static const background = Color(0xFFFFE4DC);
+  static const textDark = Color(0xFF2D3436);
+  static const textLight = Color(0xFF636E72);
+  static const cardShadow = Color(0x1A000000);
   static const primaryColorYellow = Color(0xff2f3042);
   // Brand Colors
   static const greenYellow = Color(_primaryColorValue);
