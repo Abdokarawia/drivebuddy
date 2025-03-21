@@ -1,19 +1,34 @@
+import 'package:drivebuddy/Features/Login/presenation/view/login_view.dart';
+import 'package:drivebuddy/core/Utils/Shared%20Methods.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:drivebuddy/Features/Profile/presentation/manger/profile_cubit.dart';
+import 'package:drivebuddy/Features/Profile/presentation/manger/profile_state.dart';
+
+import '../data/ProfileModel.dart';
 
 class ProfileScreen extends StatelessWidget {
+  final String uid;
+
+  const ProfileScreen({required this.uid});
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Color(0xFFFFF3EE),
-      appBar: _buildAppBar(),
-      body: _buildBody(),
+    return BlocProvider(
+      create: (_) => ProfileCubit()..getProfile(uid),
+      child: Scaffold(
+        backgroundColor: Color(0xFFFFF3EE),
+        appBar: _buildAppBar(context),
+        body: _buildBody(context),
+      ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(context) {
     return AppBar(
       elevation: 0,
       backgroundColor: Color(0xFFE67E5E),
+      leading: Container(),
       title: Text(
         'User Profile',
         style: TextStyle(
@@ -25,27 +40,91 @@ class ProfileScreen extends StatelessWidget {
       actions: [
         IconButton(
           icon: Icon(Icons.logout_rounded, color: Colors.white),
-          onPressed: () {},
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (BuildContext dialogContext) {
+                return AlertDialog(
+                  title: Text('Logout'),
+                  content: Text('Are you sure you want to logout?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop(); // Close dialog
+                      },
+                      child: Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+
+                        navigateAndFinished(context, LoginView());
+                      },
+                      child: Text('Logout'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildBody() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildProfileHeader(),
-          _buildProfileInfo(),
-          _buildPreferences(),
-          _buildVehicleInfo(),
-          _buildFooter(),
-        ],
-      ),
+  Widget _buildBody(BuildContext context) {
+    return BlocConsumer<ProfileCubit, ProfileState>(
+      listener: (context, state) {
+        if (state is ProfileUpdated) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Profile updated successfully'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else if (state is ProfileError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text(state.message),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        if (state is ProfileLoading) {
+          return Center(child: CircularProgressIndicator());
+        }
+        if (state is ProfileLoaded || state is ProfileUpdated) {
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildProfileHeader((state as dynamic ).profile),
+                _buildProfileInfo(context, (state as dynamic ).profile),
+                _buildFooter(context),
+              ],
+            ),
+          );
+        }
+        return Center(child: Text('Please wait...'));
+      },
     );
   }
 
-  Widget _buildProfileHeader() {
+  Widget _buildProfileHeader(ProfileModel profile) {
     return Container(
       padding: EdgeInsets.all(20),
       child: Column(
@@ -86,38 +165,25 @@ class ProfileScreen extends StatelessWidget {
                       width: 2,
                     ),
                   ),
-                  child: Icon(
-                    Icons.camera_alt,
-                    color: Colors.white,
-                    size: 20,
-                  ),
                 ),
               ),
             ],
           ),
           SizedBox(height: 16),
           Text(
-            'Reman Smith',
+            profile.displayName??"",
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
-          Text(
-            'Premium Member',
-            style: TextStyle(
-              fontSize: 16,
-              color: Color(0xFFE67E5E),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildProfileInfo() {
+  Widget _buildProfileInfo(BuildContext context, ProfileModel profile) {
     return Container(
       margin: EdgeInsets.all(16),
       padding: EdgeInsets.all(20),
@@ -135,117 +201,34 @@ class ProfileScreen extends StatelessWidget {
       child: Column(
         children: [
           _buildTextField(
+            context: context,
             label: 'Username',
-            value: 'remansmith',
+            value: profile.displayName ?? "",
             icon: Icons.person_outline,
+            onEdit: (newValue) => _updateProfile(context, uid, displayName: newValue),
           ),
           _buildDivider(),
           _buildTextField(
+            context: context,
             label: 'Email',
-            value: 'reman.smith@example.com',
+            value: profile.email,
             icon: Icons.email_outlined,
+            onEdit: (newValue) => _updateProfile(context, uid, email: newValue),
           ),
           _buildDivider(),
           _buildTextField(
+            context: context,
             label: 'Phone Number',
-            value: '+1 234 567 8900',
+            value: profile.phoneNumber ??"",
             icon: Icons.phone_outlined,
-          ),
-          _buildDivider(),
-          _buildTextField(
-            label: 'Password',
-            value: '••••••••',
-            icon: Icons.lock_outline,
-            isPassword: true,
+            onEdit: (newValue) => _updateProfile(context, uid, phoneNumber: newValue),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPreferences() {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16),
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Preferences',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          SizedBox(height: 16),
-          _buildPreferenceSwitch(
-            'Push Notifications',
-            'Receive notifications about vehicle status',
-            true,
-          ),
-          _buildPreferenceSwitch(
-            'Email Updates',
-            'Get weekly reports and updates',
-            false,
-          ),
-          _buildPreferenceSwitch(
-            'Dark Mode',
-            'Switch to dark theme',
-            false,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVehicleInfo() {
-    return Container(
-      margin: EdgeInsets.all(16),
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Vehicle Information',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          SizedBox(height: 16),
-          _buildVehicleDetail('Model', 'Toyota Camry 2024'),
-          _buildVehicleDetail('License Plate', 'ABC 123'),
-          _buildVehicleDetail('VIN', '1HGCM82633A123456'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter() {
+  Widget _buildFooter(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -271,28 +254,18 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(height: 16),
-          TextButton(
-            onPressed: () {},
-            child: Text(
-              'Delete Account',
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
   Widget _buildTextField({
+    required BuildContext context,
     required String label,
     required String value,
     required IconData icon,
     bool isPassword = false,
+    required Function(String) onEdit,
   }) {
     return Container(
       margin: EdgeInsets.symmetric(vertical: 8),
@@ -340,7 +313,12 @@ class ProfileScreen extends StatelessWidget {
               color: Color(0xFFE67E5E),
               size: 20,
             ),
-            onPressed: () {},
+            onPressed: () async {
+              final newValue = await _showEditDialog(context, label, value);
+              if (newValue != null && newValue != value) {
+                onEdit(newValue);
+              }
+            },
           ),
         ],
       ),
@@ -355,66 +333,40 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPreferenceSwitch(String title, String subtitle, bool value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
+  Future<String?> _showEditDialog(BuildContext context, String label, String currentValue) async {
+    TextEditingController controller = TextEditingController(text: currentValue);
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit $label'),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(hintText: 'Enter new $label'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
           ),
-          Switch(
-            value: value,
-            onChanged: (bool newValue) {},
-            activeColor: Color(0xFFE67E5E),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: Text('Save'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildVehicleDetail(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-        ],
-      ),
+  void _updateProfile(BuildContext context, String uid, {
+    String? displayName,
+    String? email,
+    String? phoneNumber,
+  }) {
+    context.read<ProfileCubit>().updateProfile(
+      uid: uid,
+      displayName: displayName,
+      email: email,
+      phoneNumber: phoneNumber,
     );
   }
 }

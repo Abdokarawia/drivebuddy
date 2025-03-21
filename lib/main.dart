@@ -6,11 +6,15 @@ import 'Core/Utils/App Colors.dart';
 
 import 'Features/Home/view/presentation/home_view.dart';
 import 'bloc_observer.dart';
-
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Bloc.observer = MyBlocObserver();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   Widget widget;
 

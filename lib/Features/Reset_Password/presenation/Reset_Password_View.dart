@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import '../../../core/Utils/Core Components.dart';
 import '../../Home/view/presentation/home_view.dart';
+import '../../Sign_up/presenation/sign_up_view.dart';
 
 class ResetPasswordView extends StatelessWidget {
   const ResetPasswordView({super.key});
@@ -36,7 +37,7 @@ class ResetPasswordView extends StatelessWidget {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.end,
                             crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [AnimatedLogo()],
+                            children: [buildLogo()],
                           ),
                         ),
                       ),
@@ -108,7 +109,6 @@ class ResetPasswordView extends StatelessWidget {
                             onPressed: () {
                               // Add Reset Password logic here
                             },
-                            delay: 900,
                           ),
                         ],
                       ),

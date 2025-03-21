@@ -15,8 +15,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
       'subtitle': 'Regular system check completed',
       'time': '08:30 AM',
       'icon': Icons.lock_outline,
-      'status': 'Checked',
-      'statusColor': Colors.green,
     },
     {
       'date': DateTime.now(),
@@ -24,8 +22,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
       'subtitle': 'System response test completed',
       'time': '10:15 AM',
       'icon': Icons.speed,
-      'status': 'Warning',
-      'statusColor': Colors.orange,
     },
     {
       'date': DateTime.now().subtract(Duration(days: 1)),
@@ -33,8 +29,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
       'subtitle': 'Power system diagnostics completed',
       'time': '03:45 PM',
       'icon': Icons.battery_charging_full,
-      'status': 'Critical',
-      'statusColor': Colors.red,
     },
     {
       'date': DateTime.now().subtract(Duration(days: 1)),
@@ -42,29 +36,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
       'subtitle': 'Security check completed',
       'time': '05:30 PM',
       'icon': Icons.security,
-      'status': 'Checked',
-      'statusColor': Colors.green,
     },
   ];
 
   List<Map<String, dynamic>> get _filteredHistoryItems {
     final now = DateTime.now();
     switch (_selectedFilter) {
-      case 'Today':
-        return _historyItems.where((item) => _isSameDay(item['date'], now)).toList();
-      case 'Yesterday':
-        return _historyItems.where((item) => _isSameDay(item['date'], now.subtract(Duration(days: 1)))).toList();
       case 'This Week':
         return _historyItems.where((item) => _isSameWeek(item['date'], now)).toList();
       case 'This Month':
         return _historyItems.where((item) => _isSameMonth(item['date'], now)).toList();
-      default:
+      case 'This Year':
+        return _historyItems.where((item) => _isSameYear(item['date'], now)).toList();
+      default: // 'All Time'
         return _historyItems;
     }
-  }
-
-  bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year && date1.month == date2.month && date1.day == date2.day;
   }
 
   bool _isSameWeek(DateTime date1, DateTime date2) {
@@ -75,6 +61,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   bool _isSameMonth(DateTime date1, DateTime date2) {
     return date1.year == date2.year && date1.month == date2.month;
+  }
+
+  bool _isSameYear(DateTime date1, DateTime date2) {
+    return date1.year == date2.year;
   }
 
   @override
@@ -89,6 +79,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       elevation: 0,
+      leading: Container(),
       backgroundColor: Color(0xFFE67E5E),
       title: Text(
         'All History',
@@ -98,16 +89,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           fontWeight: FontWeight.w600,
         ),
       ),
-      actions: [
-        IconButton(
-          icon: Icon(Icons.filter_list, color: Colors.white),
-          onPressed: () {},
-        ),
-        IconButton(
-          icon: Icon(Icons.search, color: Colors.white),
-          onPressed: () {},
-        ),
-      ],
     );
   }
 
@@ -130,10 +111,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
           padding: EdgeInsets.symmetric(horizontal: 16),
           children: [
             _buildDateChip('All Time', isSelected: _selectedFilter == 'All Time'),
-            _buildDateChip('Today', isSelected: _selectedFilter == 'Today'),
-            _buildDateChip('Yesterday', isSelected: _selectedFilter == 'Yesterday'),
             _buildDateChip('This Week', isSelected: _selectedFilter == 'This Week'),
             _buildDateChip('This Month', isSelected: _selectedFilter == 'This Month'),
+            _buildDateChip('This Year', isSelected: _selectedFilter == 'This Year'),
           ],
         ),
       ),
@@ -182,8 +162,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 subtitle: item['subtitle'],
                 time: item['time'],
                 icon: item['icon'],
-                status: item['status'],
-                statusColor: item['statusColor'],
               )),
             ],
           );
@@ -226,8 +204,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     required String subtitle,
     required String time,
     required IconData icon,
-    required String status,
-    required Color statusColor,
   }) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -256,34 +232,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
             size: 24,
           ),
         ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                status,
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,61 +260,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
           ],
         ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: Colors.grey[400],
-        ),
-        onTap: () {},
       ),
-    );
-  }
-}
-
-class CustomTabIndicator extends Decoration {
-  final double radius;
-  final Color color;
-
-  const CustomTabIndicator({
-    this.radius = 8,
-    this.color = const Color(0xFFE67E5E),
-  });
-
-  @override
-  BoxPainter createBoxPainter([VoidCallback? onChanged]) {
-    return _CustomPainter(
-      radius: radius,
-      color: color,
-    );
-  }
-}
-
-class _CustomPainter extends BoxPainter {
-  final double radius;
-  final Color color;
-
-  _CustomPainter({
-    required this.radius,
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
-    final Paint paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final Rect rect = offset & configuration.size!;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          rect.left,
-          rect.bottom - radius,
-          rect.width,
-          radius,
-        ),
-        Radius.circular(radius),
-      ),
-      paint,
     );
   }
 }

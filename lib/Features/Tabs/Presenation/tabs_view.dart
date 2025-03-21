@@ -1,12 +1,20 @@
+import 'package:drivebuddy/core/Utils/Shared%20Methods.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
+// Assuming these are the paths to your screens
+import '../../Camera_Scanning_and_Results/presentation/camera_scanning_view.dart';
 import '../../History/presentation/history_view.dart';
 import '../../Main/view/presentation/Main_view.dart';
 import '../../Notification/presentation/notification_view.dart';
 import '../../Profile/presentation/Profile_view.dart';
 
 class TabsScreen extends StatefulWidget {
+  final String uid;
+  final String email;
+  final String userName;
+  TabsScreen(this.email, this.uid, this.userName, {super.key});
+
   @override
   _TabsScreenState createState() => _TabsScreenState();
 }
@@ -29,50 +37,77 @@ class _TabsScreenState extends State<TabsScreen> {
         controller: _pageController,
         physics: NeverScrollableScrollPhysics(),
         children: [
-          MainScreenView(),
+          MainScreenView(
+            uid: widget.uid,
+            userName: widget.userName,
+            email: widget.email,
+          ),
           HistoryScreen(),
           NotificationScreen(),
-          ProfileScreen(),
+          ProfileScreen(
+            uid: widget.uid,
+          ),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Color(0xFFE67E5E),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
+      bottomNavigationBar: BottomAppBar(
+        shape: CircularNotchedRectangle(), // Adds a notch for the FAB
+        notchMargin: 8.0, // Space between the notch and FAB
+        color: Color(0xFFE67E5E),
+        elevation: 10,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(Iconsax.home, 'Home', 0),
+            _buildNavItem(Iconsax.clock, 'History', 1),
+            SizedBox(width: 40), // Space for the FAB notch
+            _buildNavItem(Iconsax.notification, 'Notifications', 2),
+            _buildNavItem(Iconsax.profile_circle, 'Profile', 3),
+          ],
         ),
-        child: BottomNavigationBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          items: [
-            BottomNavigationBarItem(
-              icon: Icon(Iconsax.home),
-              label: 'Home',
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          navigateTo(context, CameraScanScreen());
+        },
+        backgroundColor: Colors.white,
+        child: Icon(Iconsax.camera, color: Color(0xFFE67E5E), size: 28),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    );
+  }
+
+  Widget _buildNavItem(IconData icon, String label, int index) {
+    return InkWell(
+      onTap: () => _onItemTapped(index),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color:
+                  _selectedIndex == index
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.6),
+              size: 18,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Iconsax.clock),
-              label: 'History',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Iconsax.notification),
-              label: 'Notifications',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Iconsax.profile_circle),
-              label: 'Profile',
+            SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color:
+                    _selectedIndex == index
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.6),
+                fontSize: 12,
+              ),
             ),
           ],
-          currentIndex: _selectedIndex,
-          selectedItemColor: Colors.white,
-          unselectedItemColor: Colors.white.withOpacity(0.6),
-          showUnselectedLabels: true,
-          type: BottomNavigationBarType.fixed,
-          onTap: _onItemTapped,
         ),
       ),
     );
   }
 }
 
+// Simple MainScreenView implementation

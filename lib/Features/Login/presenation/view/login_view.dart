@@ -2,22 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
-import '../../../../Core/Utils/App Colors.dart'; // Adjust path as needed
-import '../../../../core/Utils/Shared Methods.dart'; // Adjust path as needed
-import '../../Login/presenation/view/login_view.dart'; // Adjust path for LoginView
-import '../manger/forget_password_cubit.dart';
-import '../manger/forget_password_state.dart'; // Adjust path as needed
+import '../../../../Core/Utils/App Colors.dart';
+import '../../../../core/Utils/Shared Methods.dart';
+import '../../../Home/view/presentation/home_view.dart';
+import '../../../Main/view/presentation/Main_view.dart';
+import '../../../Sign_up/presenation/sign_up_view.dart';
+import '../../../Tabs/Presenation/tabs_view.dart';
+import '../manger/login_cubit.dart';
+import '../../../Forget_Password/Presentation/forget_password_view.dart'; // Added import
 
-class ForgetPasswordView extends StatefulWidget {
-  const ForgetPasswordView({super.key});
+class LoginView extends StatefulWidget {
+  const LoginView({super.key});
 
   @override
-  _ForgetPasswordViewState createState() => _ForgetPasswordViewState();
+  _LoginViewState createState() => _LoginViewState();
 }
 
-class _ForgetPasswordViewState extends State<ForgetPasswordView> {
+class _LoginViewState extends State<LoginView> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   void _showSnackBar(BuildContext context, String message, bool isSuccess) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -48,6 +53,7 @@ class _ForgetPasswordViewState extends State<ForgetPasswordView> {
   @override
   void dispose() {
     _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -56,117 +62,166 @@ class _ForgetPasswordViewState extends State<ForgetPasswordView> {
     final size = MediaQuery.of(context).size;
 
     return BlocProvider(
-      create: (context) => ForgetPasswordCubit(auth: FirebaseAuth.instance),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        resizeToAvoidBottomInset: false,
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    const ForgetPasswordBackground(),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(height: size.height * 0.35),
-                            const FadeInText(
-                              text: 'Reset Password',
-                              textAlign: TextAlign.start,
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
+      create: (context) => LoginCubit(auth: FirebaseAuth.instance)..checkAuthState(),
+      child: BlocListener<LoginCubit, LoginState>(
+        listener: (context, state) {
+          if (state is LoginSuccess) {
+            _showSnackBar(context, 'Welcome back!', true);
+            Future.delayed(const Duration(seconds: 1), () {
+              navigateTo(context,  TabsScreen(
+                 state.user.email.toString(),
+                state.user.uid.toString(),
+                state.user.displayName.toString(),
+              ),);
+            });
+          } else if (state is LoginFailure) {
+            _showSnackBar(context, state.errorMessage, false);
+          }
+        },
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          resizeToAvoidBottomInset: false,
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      const LoginBackground(),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(height: size.height * 0.35),
+                              const FadeInText(
+                                text: 'Welcome Back!',
+                                textAlign: TextAlign.start,
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                                delay: 500,
                               ),
-                              delay: 500,
-                            ),
-                            const SizedBox(height: 4),
-                            const FadeInText(
-                              textAlign: TextAlign.start,
-                              text: 'Enter your email to receive a reset link',
-                              style: TextStyle(fontSize: 14, color: Colors.black54),
-                              delay: 700,
-                            ),
-                            const SizedBox(height: 24),
-                            _buildTextField(),
-                            const SizedBox(height: 24),
-                            BlocConsumer<ForgetPasswordCubit, ForgetPasswordState>(
-                              listener: (context, state) {
-                                if (state is ForgetPasswordSuccess) {
-                                  _showSnackBar(context, state.message, true);
-                                  Future.delayed(const Duration(seconds: 2), () {
-                                    navigateTo(context, const LoginView());
-                                  });
-                                } else if (state is ForgetPasswordFailure) {
-                                  _showSnackBar(context, state.errorMessage, false);
-                                }
-                              },
-                              builder: (context, state) {
-                                return AnimatedButton(
-                                  text: 'SEND RESET LINK',
-                                  isLoading: state is ForgetPasswordLoading,
-                                  onPressed: () {
-                                    if (_formKey.currentState?.validate() ?? false) {
-                                      context.read<ForgetPasswordCubit>().resetPassword(
-                                        _emailController.text.trim(),
-                                      );
-                                    }
-                                  },
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            _buildBackToLogin(context),
-                          ],
+                              const SizedBox(height: 4),
+                              const FadeInText(
+                                textAlign: TextAlign.start,
+                                text: 'Log in to your DriveBuddy account',
+                                style: TextStyle(fontSize: 14, color: Colors.black54),
+                                delay: 700,
+                              ),
+                              const SizedBox(height: 24),
+                              _buildTextFields(),
+                              const SizedBox(height: 12),
+                              _buildForgotPassword(context), // Added Forgot Password link
+                              const SizedBox(height: 12),
+                              BlocBuilder<LoginCubit, LoginState>(
+                                builder: (context, state) {
+                                  return AnimatedButton(
+                                    text: 'LOG IN',
+                                    isLoading: state is LoginLoading,
+                                    onPressed: () {
+                                      if (_formKey.currentState?.validate() ?? false) {
+                                        context.read<LoginCubit>().loginWithEmailAndPassword(
+                                          email: _emailController.text.trim(),
+                                          password: _passwordController.text.trim(),
+                                        );
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              _buildSignUpRedirect(context),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTextField() {
+  Widget _buildTextFields() {
     return Form(
       key: _formKey,
-      child: CustomTextField(
-        label: 'Enter your Email',
-        icon: Icons.email,
-        controller: _emailController,
-        keyboardType: TextInputType.emailAddress,
-        validator: FormBuilderValidators.compose([
-          FormBuilderValidators.required(errorText: 'Email is required'),
-          FormBuilderValidators.email(
-            errorText: 'Please enter a valid email address',
-            regex: RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'),
+      child: Column(
+        children: [
+          CustomTextField(
+            label: 'Enter your Email',
+            icon: Icons.email,
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            validator: FormBuilderValidators.compose([
+              FormBuilderValidators.required(errorText: 'Email is required'),
+              FormBuilderValidators.email(
+                errorText: 'Please enter a valid email address',
+                regex: RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'),
+              ),
+            ]),
           ),
-        ]),
+          const SizedBox(height: 12),
+          CustomTextField(
+            label: 'Enter your Password',
+            icon: Icons.lock,
+            controller: _passwordController,
+            keyboardType: TextInputType.visiblePassword,
+            obscureText: _obscurePassword,
+            validator: FormBuilderValidators.compose([
+              FormBuilderValidators.required(errorText: 'Password is required'),
+              FormBuilderValidators.minLength(6, errorText: 'Password must be at least 6 characters'),
+            ]),
+            trailing: IconButton(
+              icon: Icon(
+                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                color: AppColorsData.primaryColor,
+              ),
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildBackToLogin(BuildContext context) {
+  Widget _buildForgotPassword(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton(
+        onPressed: () => navigateTo(context, const ForgetPasswordView()),
+        child: Text(
+          "Forgot Password?",
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColorsData.primaryColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSignUpRedirect(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Text(
-          "Remembered your password?",
+          "Don't have an account?",
           style: TextStyle(fontSize: 12, color: Colors.black),
         ),
         TextButton(
-          onPressed: () => navigateTo(context, const LoginView()),
+          onPressed: () => navigateTo(context, SignUpView()),
           child: Text(
-            "Log in",
+            "Sign up",
             style: TextStyle(
               fontSize: 12,
               color: AppColorsData.primaryColor,
@@ -187,6 +242,7 @@ class CustomTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final bool obscureText;
   final String? Function(String?)? validator;
+  final Widget? trailing;
 
   const CustomTextField({
     super.key,
@@ -196,6 +252,7 @@ class CustomTextField extends StatelessWidget {
     this.keyboardType,
     this.obscureText = false,
     this.validator,
+    this.trailing,
   });
 
   @override
@@ -207,6 +264,7 @@ class CustomTextField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: icon != null ? Icon(icon, color: AppColorsData.primaryColor) : null,
+        suffixIcon: trailing,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -227,7 +285,7 @@ class CustomTextField extends StatelessWidget {
 }
 
 // Background Components
-class ForgetPasswordWavePainter extends CustomPainter {
+class LoginWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     Paint paint = Paint()
@@ -258,8 +316,8 @@ class ForgetPasswordWavePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class ForgetPasswordBackground extends StatelessWidget {
-  const ForgetPasswordBackground({super.key});
+class LoginBackground extends StatelessWidget {
+  const LoginBackground({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +326,7 @@ class ForgetPasswordBackground extends StatelessWidget {
         Positioned.fill(
           child: Container(
             decoration: const BoxDecoration(color: Colors.white),
-            child: CustomPaint(painter: ForgetPasswordWavePainter()),
+            child: CustomPaint(painter: LoginWavePainter()),
           ),
         ),
         Positioned(

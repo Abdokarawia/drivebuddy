@@ -6,12 +6,11 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  // List of notifications with their read/unread status
+  // List of notifications with their read/unread status, urgencyLevel removed
   final List<Map<String, dynamic>> _notifications = [
     {
       'title': 'Automatic Shift Lock',
       'message': 'The Automatic Shift Lock shows up when the ignition is on',
-      'urgencyLevel': 'Medium',
       'time': '2 min ago',
       'icon': Icons.lock_outline,
       'isUnread': true,
@@ -19,8 +18,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     {
       'title': 'Sport Mode Indicator',
       'message':
-          "Sport mode indicator lights up when the vehicle responds to a driver's input",
-      'urgencyLevel': 'Medium',
+      "Sport mode indicator lights up when the vehicle responds to a driver's input",
       'time': '15 min ago',
       'icon': Icons.speed,
       'isUnread': true,
@@ -28,8 +26,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     {
       'title': 'Battery Check Required',
       'message':
-          "You have battery problems, and your car isn't getting enough power. You need to operate manually",
-      'urgencyLevel': 'High',
+      "You have battery problems, and your car isn't getting enough power. You need to operate manually",
       'time': '1 day ago',
       'icon': Icons.battery_alert,
       'isUnread': false,
@@ -38,8 +35,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     {
       'title': 'Oil Level Warning',
       'message':
-          "Your vehicle's oil level is below recommended levels. Please check and refill if necessary",
-      'urgencyLevel': 'Medium',
+      "Your vehicle's oil level is below recommended levels. Please check and refill if necessary",
       'time': '1 day ago',
       'icon': Icons.opacity,
       'isUnread': false,
@@ -47,8 +43,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     {
       'title': 'Tire Pressure Alert',
       'message':
-          'Right front tire pressure is low. Recommended pressure is 32 PSI',
-      'urgencyLevel': 'Low',
+      'Right front tire pressure is low. Recommended pressure is 32 PSI',
       'time': '3 days ago',
       'icon': Icons.tire_repair,
       'isUnread': false,
@@ -90,15 +85,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 'Time: ${notification['time']}',
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
-              SizedBox(height: 8),
-              Text(
-                'Urgency: ${notification['urgencyLevel']}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: notification['urgencyColor'] ?? Color(0xFFE67E5E),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              // Removed urgency text from here
             ],
           ),
           actions: [
@@ -127,10 +114,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return AppBar(
       elevation: 0,
       backgroundColor: Color(0xFFE67E5E),
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back_ios, color: Colors.white),
-        onPressed: () {},
-      ),
+      leading: Container(),
       title: Text(
         'Notifications',
         style: TextStyle(
@@ -139,12 +123,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
           fontWeight: FontWeight.w600,
         ),
       ),
-      actions: [
-        IconButton(
-          icon: Icon(Icons.more_vert, color: Colors.white),
-          onPressed: () {},
-        ),
-      ],
     );
   }
 
@@ -187,7 +165,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
               child: _buildNotificationItem(
                 title: notification['title'],
                 message: notification['message'],
-                urgencyLevel: notification['urgencyLevel'],
                 time: notification['time'],
                 icon: notification['icon'],
                 isUnread: notification['isUnread'],
@@ -203,7 +180,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Widget _buildNotificationItem({
     required String title,
     required String message,
-    required String urgencyLevel,
     required String time,
     required IconData icon,
     bool isUnread = false,
@@ -276,50 +252,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     height: 1.4,
                   ),
                 ),
-                SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: (urgencyColor ?? Color(0xFFE67E5E)).withOpacity(
-                          0.1,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.priority_high,
-                            size: 16,
-                            color: urgencyColor ?? Color(0xFFE67E5E),
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Urgency: $urgencyLevel',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: urgencyColor ?? Color(0xFFE67E5E),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: Colors.grey[400],
-                      ),
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
+                // Removed the urgency Row from here
               ],
             ),
           ),
