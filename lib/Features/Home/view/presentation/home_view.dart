@@ -1,17 +1,17 @@
-import 'package:drivebuddy/Core/Utils/App%20Colors.dart';
-import 'package:drivebuddy/Features/Login/presenation/view/login_view.dart';
-import 'package:drivebuddy/Features/Sign_up/presenation/sign_up_view.dart';
 import 'package:flutter/material.dart';
+import '../../../../Core/Utils/App Colors.dart';
 import '../../../../core/Utils/Shared Methods.dart';
+import '../../../Login/presenation/view/login_view.dart';
+import '../../../Sign_up/presenation/sign_up_view.dart';
 
-class MainView extends StatefulWidget {
-  const MainView({super.key});
+class OnboardingView extends StatefulWidget {
+  const OnboardingView({super.key});
 
   @override
-  State<MainView> createState() => _MainViewState();
+  State<OnboardingView> createState() => _OnboardingViewState();
 }
 
-class _MainViewState extends State<MainView> with SingleTickerProviderStateMixin {
+class _OnboardingViewState extends State<OnboardingView> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -38,66 +38,67 @@ class _MainViewState extends State<MainView> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final isLargeScreen = size.width > 600; // Define breakpoint for larger screens
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          const AnimatedBackground(),
-          FadeTransition(
-            opacity: _fadeAnimation,
-            child: Column(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: SizedBox(
-                    width: size.width,
-                    child: buildLogo(),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            children: [
+              const Positioned.fill(
+                child: OnboardingBackground(),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: constraints.maxHeight * 0.6, // 50% of screen height
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: size.width * 0.06, // 6% of screen width
+                      vertical: size.height * 0.02, // 2% of screen height
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        _buildHeader(),
-                        const SizedBox(height: 32),
-                        _buildCreateAccountButton(),
-                        const SizedBox(height: 16),
-                        _buildLoginPrompt(),
+                        _buildHeader(isLargeScreen: isLargeScreen),
+                        SizedBox(height: size.height * 0.04), // 4% of screen height
+                        _buildGetStartedButton(constraints),
+                        SizedBox(height: size.height * 0.02), // 2% of screen height
+                        _buildLoginPrompt(isLargeScreen: isLargeScreen),
                       ],
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader({required bool isLargeScreen}) {
     return Column(
       children: [
         Text(
           'DriveBuddy',
           style: TextStyle(
-            fontSize: 32,
+            fontSize: isLargeScreen ? 40 : 32,
             fontWeight: FontWeight.bold,
             color: AppColorsData.primaryColor,
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Text(
-          'Unlock the mystery behind every dashboard alert\n'
-              'Drive smarter and safer with us!',
+          'Your smart companion for understanding\nvehicle diagnostics and maintenance',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: isLargeScreen ? 18 : 16,
             color: Colors.grey[600],
           ),
           textAlign: TextAlign.center,
@@ -106,42 +107,47 @@ class _MainViewState extends State<MainView> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildCreateAccountButton() {
+  Widget _buildGetStartedButton(BoxConstraints constraints) {
     return SizedBox(
-      width: double.infinity,
+      width: constraints.maxWidth * 0.8, // 80% of available width
       child: ElevatedButton(
-        onPressed: () => navigateTo(context,  SignUpView()),
+        onPressed: () => navigateTo(context, SignUpView()),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColorsData.primaryColor,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: EdgeInsets.symmetric(
+            vertical: constraints.maxHeight * 0.025, // Responsive padding
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
           elevation: 3,
         ),
         child: const Text(
-          'CREATE ACCOUNT',
+          'GET STARTED',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
     );
   }
 
-  Widget _buildLoginPrompt() {
+  Widget _buildLoginPrompt({required bool isLargeScreen}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           "Already have an account? ",
-          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          style: TextStyle(
+            fontSize: isLargeScreen ? 16 : 14,
+            color: Colors.grey[600],
+          ),
         ),
         TextButton(
           onPressed: () => navigateTo(context, const LoginView()),
           child: Text(
             "Log in",
             style: TextStyle(
-              fontSize: 14,
+              fontSize: isLargeScreen ? 16 : 14,
               color: AppColorsData.primaryColor,
               fontWeight: FontWeight.bold,
             ),
@@ -152,126 +158,74 @@ class _MainViewState extends State<MainView> with SingleTickerProviderStateMixin
   }
 }
 
-class WaveBorderPainter extends CustomPainter {
-  final double animationValue;
-
-  WaveBorderPainter({this.animationValue = 0.0});
+class OnboardingBackground extends StatelessWidget {
+  const OnboardingBackground({super.key});
 
   @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Container(
+            decoration: const BoxDecoration(color: Colors.white),
+            child: CustomPaint(painter: LoginWavePainter()),
+          ),
+        ),
+        Positioned(
+          top: size.height * 0.22, // 15% from top
+          right: size.width * 0.05, // 5% from right
+          child: SizedBox(
+            width: size.width * 0.25, // 30% of screen width
+            height: size.width * 0.25, // Keep it square
+            child: buildLogo(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class LoginWavePainter extends CustomPainter {
+  @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColorsData.primaryColor.withOpacity(0.95)
-      ..style = PaintingStyle.fill
-      ..shader = LinearGradient(
-        colors: [
-          AppColorsData.primaryColor,
-          AppColorsData.primaryColor.withOpacity(0.7),
-        ],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    Paint paint = Paint()
+      ..color = AppColorsData.primaryColor
+      ..style = PaintingStyle.fill;
 
-    final path = Path()
-      ..lineTo(0, size.height * 0.9)
-      ..quadraticBezierTo(
-          size.width * 0.25,
-          size.height * (0.99 + 0.05 * animationValue),
-          size.width * 0.5,
-          size.height * 0.8)
-      ..quadraticBezierTo(
-          size.width * 0.75,
-          size.height * (0.6 - 0.05 * animationValue),
-          size.width,
-          size.height * 0.8)
-      ..lineTo(size.width, 0)
-      ..close();
+    Path path = Path();
+    path.lineTo(0, size.height * 0.26);
+    path.quadraticBezierTo(
+      size.width * 0.25,
+      size.height * 0.36,
+      size.width * 0.5,
+      size.height * 0.26,
+    );
+    path.quadraticBezierTo(
+      size.width * 0.75,
+      size.height * 0.15,
+      size.width,
+      size.height * 0.19,
+    );
+    path.lineTo(size.width, 0);
+    path.close();
 
-    canvas.drawShadow(path, Colors.black.withOpacity(0.2), 3.0, false);
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant WaveBorderPainter oldDelegate) =>
-      oldDelegate.animationValue != animationValue;
-}
-
-class AnimatedBackground extends StatefulWidget {
-  const AnimatedBackground({super.key});
-
-  @override
-  State<AnimatedBackground> createState() => _AnimatedBackgroundState();
-}
-
-class _AnimatedBackgroundState extends State<AnimatedBackground>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat(reverse: true);
-    _animation = Tween<double>(begin: -1.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return SizedBox(
-      height: screenHeight * 0.6, // Increased height for better visual balance
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white,
-                    Colors.grey[50]!,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _animation,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: WaveBorderPainter(animationValue: _animation.value),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 Widget buildLogo() {
   return Container(
-    width:  170,
-    height: 170,
     child: Center(
       child: Image.asset(
         "assets/images/logo.png",
-        width: ( 170) * 0.7,
-        height: ( 170) * 0.7,
+        width: 200, // Will respect parent constraints
+        height: 200,
+        fit: BoxFit.contain, // Maintain aspect ratio
       ),
     ),
   );

@@ -18,7 +18,7 @@ Future<void> main() async {
 
   Widget widget;
 
-  runApp(const MyApp(widget: MainView()));
+  runApp(const MyApp(widget: OnboardingView()));
 }
 
 class MyApp extends StatelessWidget {

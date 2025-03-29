@@ -70,6 +70,8 @@ class _TabsScreenState extends State<TabsScreen> {
           navigateTo(context, CameraScanScreen());
         },
         backgroundColor: Colors.white,
+        shape: const CircleBorder(),
+
         child: Icon(Iconsax.camera, color: Color(0xFFE67E5E), size: 28),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
