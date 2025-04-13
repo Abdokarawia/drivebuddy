@@ -47,29 +47,29 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBZTdRZHnZtcTFcdXGBjtoDChhy6HFC6Sw',
-    appId: '1:795948098638:android:17f0380fa3121166da0f1f',
-    messagingSenderId: '795948098638',
-    projectId: 'drivebuddy-6c4b6',
-    storageBucket: 'drivebuddy-6c4b6.firebasestorage.app',
+    apiKey: 'AIzaSyBlXAP20EO2fkMJdF0kvA3U0fmlSp1ubx0',
+    appId: '1:334491000577:android:0b581636c0bd537196c500',
+    messagingSenderId: '334491000577',
+    projectId: 'drivebuddy-8590c',
+    storageBucket: 'drivebuddy-8590c.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCH_NARy34C1JVpjBzIJZYlnNfFCoz8UJw',
-    appId: '1:795948098638:ios:d2fdf1e75f217117da0f1f',
-    messagingSenderId: '795948098638',
-    projectId: 'drivebuddy-6c4b6',
-    storageBucket: 'drivebuddy-6c4b6.firebasestorage.app',
+    apiKey: 'AIzaSyB_ITfKEwd4Oa8WqwIPvicKQWWsXhU_u7c',
+    appId: '1:334491000577:ios:9060cbecc40e332b96c500',
+    messagingSenderId: '334491000577',
+    projectId: 'drivebuddy-8590c',
+    storageBucket: 'drivebuddy-8590c.firebasestorage.app',
     iosBundleId: 'com.example.drivebuddy',
   );
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAId8xNvf--jvYxdmCllBX-7N_qD6eAmDc',
-    appId: '1:795948098638:web:cc8f6c6a279cf120da0f1f',
-    messagingSenderId: '795948098638',
-    projectId: 'drivebuddy-6c4b6',
-    authDomain: 'drivebuddy-6c4b6.firebaseapp.com',
-    storageBucket: 'drivebuddy-6c4b6.firebasestorage.app',
+    apiKey: 'AIzaSyA-W1BMBs4HMlJLXz-ctyiOY3S2t_FESTI',
+    appId: '1:334491000577:web:f9fb52283e76e3e596c500',
+    messagingSenderId: '334491000577',
+    projectId: 'drivebuddy-8590c',
+    authDomain: 'drivebuddy-8590c.firebaseapp.com',
+    storageBucket: 'drivebuddy-8590c.firebasestorage.app',
   );
 
 }

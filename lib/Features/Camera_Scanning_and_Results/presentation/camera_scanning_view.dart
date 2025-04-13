@@ -8,6 +8,9 @@ import 'package:iconsax/iconsax.dart';
 import 'package:dio/dio.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class CameraScanScreen extends StatefulWidget {
   const CameraScanScreen({Key? key}) : super(key: key);
@@ -27,6 +30,11 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   late AnimationController _animationController;
   late Animation<double> _animation;
 
+  // Firebase instances
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+
   final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(seconds: 30),
@@ -39,6 +47,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     super.initState();
     _fetchApiUrl(); // Fetch the API URL from Firebase with validation
     _initializeCamera();
+    _initializeNotifications();
 
     _animationController = AnimationController(
       duration: const Duration(seconds: 2),
@@ -54,6 +63,70 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
     if (!kIsWeb) {
       HttpOverrides.global = MyHttpOverrides();
+    }
+  }
+
+  Future<void> _initializeNotifications() async {
+    // Request permission for notifications
+    NotificationSettings settings = await _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      print('User granted permission for notifications');
+
+      // Handle Firebase Cloud Messaging for foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        print('Got a message whilst in the foreground!');
+        print('Message data: ${message.data}');
+
+        if (message.notification != null) {
+          print('Message also contained a notification: ${message.notification}');
+
+          // Show in-app notification with SnackBar
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message.notification?.body ?? 'New scan notification'),
+                backgroundColor: const Color(0xFFE67E5E),
+                duration: const Duration(seconds: 5),
+                action: SnackBarAction(
+                  label: 'View',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    // Navigate to scan history or details if needed
+                    // Navigator.push(context, MaterialPageRoute(builder: (context) => ScanHistoryScreen()));
+                  },
+                ),
+              ),
+            );
+          }
+        }
+      });
+
+      // Handle when notification opens the app from terminated state
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        print('A new onMessageOpenedApp event was published!');
+        // Navigate to appropriate screen based on notification data
+        if (message.data.containsKey('scanId')) {
+          // Handle navigation to scan details
+          // Navigator.push(context, MaterialPageRoute(builder: (context) => ScanDetailScreen(scanId: message.data['scanId'])));
+        }
+      });
+
+      // Get FCM token
+      String? token = await _messaging.getToken();
+      print('FCM Token: $token');
+
+      // Save the token to Firestore for the current user
+      if (token != null && _auth.currentUser != null) {
+        await _firestore
+            .collection('users')
+            .doc(_auth.currentUser!.uid)
+            .set({'fcmToken': token}, SetOptions(merge: true));
+      }
     }
   }
 
@@ -228,6 +301,13 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
       if (response.statusCode == 200) {
         final jsonResponse = response.data is String ? jsonDecode(response.data) : response.data;
+
+        // Save scan result to Firestore history
+        await _saveScanToHistory(image, jsonResponse);
+
+        // Create notification in Firestore
+        await _createScanNotification(jsonResponse);
+
         _showScanResultsBottomSheet(image, jsonResponse);
       } else {
         _showErrorSnackbar(message: 'API request failed with status: ${response.statusCode}');
@@ -235,6 +315,120 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     } catch (e) {
       print("Error sending image to API: $e");
       _showErrorSnackbar(message: 'Failed to connect to the server: $e');
+    }
+  }
+
+  Future<void> _saveScanToHistory(XFile image, Map<String, dynamic> apiResponse) async {
+    try {
+      if (_auth.currentUser == null) {
+        print('No user is signed in, cannot save scan history');
+        return;
+      }
+
+      final userId = _auth.currentUser!.uid;
+      final timestamp = FieldValue.serverTimestamp();
+
+      // Get detections from API response
+      final detections = apiResponse['detections'] as List<dynamic>? ?? [];
+
+      // Create notification message based on detections - same as in notification
+      String notificationTitle = 'Dashboard Scan Complete';
+      String notificationBody = 'Your dashboard scan has been processed.';
+
+      if (detections.isNotEmpty) {
+        final firstDetection = detections.first;
+        final detectedClass = firstDetection['predicted_class'] as String? ?? 'Unknown';
+        final confidence = firstDetection['confidence'] as double? ?? 0.0;
+
+        notificationTitle = 'Dashboard Scan: $detectedClass Detected';
+        notificationBody = 'Detected with ${(confidence * 100).toStringAsFixed(0)}% confidence. Check results for details.';
+      }
+
+      // Create scan history document with the same structure as notification
+      final historyRef = await _firestore.collection('history').add({
+        'userId': userId,
+        'timestamp': timestamp,
+        'imagePath': image.path, // Store path instead of base64
+        'title': notificationTitle,   // Same as notification
+        'body': notificationBody,     // Same as notification
+        'read': false,                // Same as notification
+        'type': 'scan_result',        // Same as notification
+        'data': {
+          'detections': detections,
+          'scanType': 'dashboard',
+        },
+        'deviceInfo': {
+          'platform': kIsWeb ? 'web' : Platform.operatingSystem,
+          'isWeb': kIsWeb,
+        }
+      });
+
+      print('Scan saved to history with ID: ${historyRef.id}');
+
+      // Update user's scan history reference
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('scanHistory')
+          .doc(historyRef.id)
+          .set({
+        'historyRef': historyRef.id,
+        'timestamp': timestamp,
+        'scanType': 'dashboard',
+        'title': notificationTitle,  // Adding title for consistency
+        'body': notificationBody,    // Adding body for consistency
+        'read': false,               // Adding read status
+      });
+
+    } catch (e) {
+      print('Error saving scan to history: $e');
+    }
+  }
+
+  Future<void> _createScanNotification(Map<String, dynamic> apiResponse) async {
+    try {
+      if (_auth.currentUser == null) {
+        print('No user is signed in, cannot create notification');
+        return;
+      }
+
+      final userId = _auth.currentUser!.uid;
+      final timestamp = FieldValue.serverTimestamp();
+
+      // Get detections from API response
+      final detections = apiResponse['detections'] as List<dynamic>? ?? [];
+
+      // Create notification message based on detections
+      String notificationTitle = 'Dashboard Scan Complete';
+      String notificationBody = 'Your dashboard scan has been processed.';
+
+      if (detections.isNotEmpty) {
+        final firstDetection = detections.first;
+        final detectedClass = firstDetection['predicted_class'] as String? ?? 'Unknown';
+        final confidence = firstDetection['confidence'] as double? ?? 0.0;
+
+        notificationTitle = 'Dashboard Scan: $detectedClass Detected';
+        notificationBody = 'Detected with ${(confidence * 100).toStringAsFixed(0)}% confidence. Check results for details.';
+      }
+
+      // Create notification in Firestore
+      final notificationRef = await _firestore.collection('notifications').add({
+        'userId': userId,
+        'timestamp': timestamp,
+        'title': notificationTitle,
+        'body': notificationBody,
+        'read': false,
+        'type': 'scan_result',
+        'data': {
+          'detections': detections,
+          'scanType': 'dashboard',
+        }
+      });
+
+      print('Notification created with ID: ${notificationRef.id}');
+
+    } catch (e) {
+      print('Error creating notification: $e');
     }
   }
 
@@ -571,7 +765,6 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
   @override
   Widget build(BuildContext context) {
     final detections = widget.apiResponse['detections'] as List<dynamic>? ?? [];
-    final annotatedImageBase64 = widget.apiResponse['annotated_image'] as String?;
 
     return Container(
       decoration: BoxDecoration(
@@ -591,85 +784,244 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
         ],
       ),
       child: SingleChildScrollView(
+        controller: ScrollController(),
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: Container(
-                width: 50,
-                height: 6,
-                margin: const EdgeInsets.only(bottom: 12),
+        Center(
+        child: Container(
+        width: 50,
+          height: 6,
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+      const Padding(
+        padding: EdgeInsets.only(bottom: 12),
+        child: Text(
+          'Scan Results',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+      Container(
+        height: 260,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              blurRadius: 8,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: (_imageBytes != null
+              ? Image.memory(
+            _imageBytes!,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return const Center(
+                child: Text(
+                  'Image Load Failed',
+                  style: TextStyle(color: Colors.redAccent, fontSize: 16),
+                ),
+              );
+            },
+          )
+              : const Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFFE67E5E),
+            ),
+          )),
+        ),
+      ),
+      FadeTransition(
+          opacity: _fadeAnimation,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+            const Row(
+            children: [
+            Icon(Iconsax.map, color: Color(0xFFE67E5E), size: 20),
+            SizedBox(width: 8),
+            Text(
+              'AI Analysis',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+              ),
+            ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (detections.isNotEmpty)
+      ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: detections.length,
+      itemBuilder: (context, index) {
+        final detection = detections[index];
+        final detectedClass = detection['predicted_class'] as String? ?? 'Unknown';
+        final confidence = detection['confidence'] as double? ?? 0.0;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[200]!, width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFFE67E5E).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Iconsax.warning_2,
+                  color: Color(0xFFE67E5E),
+                  size: 16,
                 ),
               ),
-            ),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: Text(
-                'Scan Results',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                  letterSpacing: 0.5,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      detectedClass,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Confidence: ${(confidence * 100).toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ],
+          ),
+        );
+      },
+    )
+    else
+    Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+    color: Colors.grey[50],
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(color: Colors.grey[200]!, width: 1),
+    ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Iconsax.clipboard_close,
+            size: 28,
+            color: Colors.grey,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'No issues detected',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
             ),
-            Container(
-              height: 260,
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    blurRadius: 8,
-                    spreadRadius: 2,
-                  ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Your dashboard scan appears normal',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    ),
                 ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: annotatedImageBase64 != null
-                    ? Image.memory(
-                  base64Decode(annotatedImageBase64),
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Center(
-                      child: Text(
-                        'Image Load Failed',
-                        style: TextStyle(color: Colors.redAccent, fontSize: 16),
-                      ),
-                    );
-                  },
-                )
-                    : (_imageBytes != null
-                    ? Image.memory(
-                  _imageBytes!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Center(
-                      child: Text(
-                        'Image Load Failed',
-                        style: TextStyle(color: Colors.redAccent, fontSize: 16),
-                      ),
-                    );
-                  },
-                )
-                    : const Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFFE67E5E),
-                  ),
-                )),
-              ),
             ),
-            FadeTransition(
-              opacity: _fadeAnimation,
-              child: Container(
+          ),
+      ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: widget.onRetry,
+                  icon: const Icon(Iconsax.scan, size: 18),
+                  label: const Text('Scan Again'),
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFFE67E5E),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // Navigate to History screen if available
+                    // Navigator.pushNamed(context, '/history');
+                  },
+                  icon: const Icon(Iconsax.save_2, size: 18),
+                  label: const Text('View History'),
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.black87,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            if (detections.isNotEmpty)
+              Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -688,10 +1040,10 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                   children: [
                     const Row(
                       children: [
-                        Icon(Iconsax.map, color: Color(0xFFE67E5E), size: 20),
+                        Icon(Iconsax.message, color: Color(0xFFE67E5E), size: 20),
                         SizedBox(width: 8),
                         Text(
-                          'AI Analysis',
+                          'Recommended Actions',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -701,122 +1053,81 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                       ],
                     ),
                     const SizedBox(height: 12),
-                    detections.isNotEmpty
-                        ? Column(
-                      children: detections.map((detection) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Text(
-                            '${detection['predicted_class']}: ${(detection['confidence'] * 100).toStringAsFixed(2)}% confidence',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[800],
-                              height: 1.5,
-                            ),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: detections.length,
+                      itemBuilder: (context, index) {
+                        final detection = detections[index];
+                        final detectedClass = detection['predicted_class'] as String? ?? 'Unknown';
+
+                        // Generate recommendations based on detected class
+                        String recommendation = _getRecommendation(detectedClass);
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue[100]!, width: 1),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'For $detectedClass:',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                recommendation,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[800],
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
                           ),
                         );
-                      }).toList(),
-                    )
-                        : Text(
-                      'No detections found.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.deepOrange[800],
-                      ),
+                      },
                     ),
                   ],
                 ),
               ),
-            ),
-            FadeTransition(
-              opacity: _fadeAnimation,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      blurRadius: 6,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Iconsax.lifebuoy, color: Color(0xFFE67E5E), size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Recommended Solution',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    detections.isNotEmpty
-                        ? Column(
-                      children: detections.map((detection) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Text(
-                            detection['recommendation'] ?? 'No recommendation provided.',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[800],
-                              height: 1.5,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    )
-                        : Text(
-                      'No recommendations available.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: ElevatedButton.icon(
-                onPressed: widget.onRetry,
-                icon: const Icon(Iconsax.refresh, size: 20, color: Colors.white),
-                label: const Text(
-                  'Retry Scan',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE67E5E),
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 4,
-                  shadowColor: const Color(0xFFE67E5E).withOpacity(0.4),
-                ),
-              ),
-            ),
           ],
         ),
       ),
     );
+  }
+
+  String _getRecommendation(String detectedClass) {
+    // Generate recommendations based on detected dashboard issue
+    switch (detectedClass.toLowerCase()) {
+    case 'check engine':
+    return 'Visit a mechanic to diagnose the engine issue. This could indicate problems with emissions, fuel system, or engine performance.';
+    case 'oil pressure':
+    return 'Stop driving immediately and check oil levels. Low oil pressure can cause severe engine damage if ignored.';
+    case 'battery warning':
+    return 'Check battery connections and have the charging system tested. Your battery or alternator may need replacement.';
+    case 'abs warning':
+    return "Have your Anti-lock Braking System inspected. This affects your vehicle's ability to brake safely, especially in emergency situations.";
+    case 'brake system':
+    return 'Check brake fluid levels and have your brake system inspected immediately. Do not drive if brakes feel unresponsive.';
+    case 'airbag warning':
+    return 'Have your airbag system diagnosed. In an accident, airbags may not deploy properly with this warning active.';
+    case 'temperature warning':
+    return 'Safely pull over and let your engine cool down. Check coolant levels when safe. Continuing to drive may cause engine damage.';
+    case 'tire pressure':
+    return 'Check all tire pressures and inflate to the recommended levels. Inspect tires for damage or punctures.';
+    default:
+    return 'Have a professional mechanic inspect this warning light to determine the exact issue and recommended repairs.';
+    }
   }
 }
 

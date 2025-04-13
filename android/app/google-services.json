@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "795948098638",
-    "project_id": "drivebuddy-6c4b6",
-    "storage_bucket": "drivebuddy-6c4b6.firebasestorage.app"
+    "project_number": "334491000577",
+    "project_id": "drivebuddy-8590c",
+    "storage_bucket": "drivebuddy-8590c.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:795948098638:android:17f0380fa3121166da0f1f",
+        "mobilesdk_app_id": "1:334491000577:android:0b581636c0bd537196c500",
         "android_client_info": {
           "package_name": "com.example.drivebuddy"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBZTdRZHnZtcTFcdXGBjtoDChhy6HFC6Sw"
+          "current_key": "AIzaSyBlXAP20EO2fkMJdF0kvA3U0fmlSp1ubx0"
         }
       ],
       "services": {
