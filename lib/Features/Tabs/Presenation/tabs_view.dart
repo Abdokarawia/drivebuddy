@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 // Assuming these are the paths to your screens
-import '../../Camera_Scanning_and_Results/presentation/camera_scanning_view.dart';
+import '../../Camera_Scanning_and_Results/presentation/Camera_Scanning_View.dart';
 import '../../History/presentation/history_view.dart';
 import '../../Main/view/presentation/Main_view.dart';
 import '../../Notification/presentation/notification_view.dart';

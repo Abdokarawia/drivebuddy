@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'dart:math';
 
 class HistoryScreen extends StatefulWidget {
+  const HistoryScreen({super.key});
+
   @override
   _HistoryScreenState createState() => _HistoryScreenState();
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
   String _selectedFilter = 'All Time';
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _historyItems = [];
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -19,119 +23,81 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchHistoryData();
-  }
-
-  Future<void> _fetchHistoryData() async {
-    setState(() {
-      _isLoading = true;
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
     });
-
-    try {
-      final User? currentUser = _auth.currentUser;
-
-      if (currentUser == null) {
-        setState(() {
-          _isLoading = false;
-          _historyItems = [];
-        });
-        return;
-      }
-
-      final userId = currentUser.uid;
-      final querySnapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('scanHistory')
-          .orderBy('timestamp', descending: true)
-          .get();
-
-      final List<Map<String, dynamic>> items = [];
-
-      // Process each document
-      for (var doc in querySnapshot.docs) {
-        final data = doc.data();
-        final timestamp = data['timestamp'] as Timestamp?;
-        final date = timestamp?.toDate() ?? DateTime.now();
-
-        // Get appropriate icon based on scan type
-        IconData icon = Icons.search;
-        final scanType = data['scanType'] as String? ?? '';
-
-        if (scanType == 'dashboard') {
-          icon = Icons.dashboard;
-        } else if (scanType.contains('battery')) {
-          icon = Icons.battery_charging_full;
-        } else if (scanType.contains('lock')) {
-          icon = Icons.lock_outline;
-        } else if (scanType.contains('security')) {
-          icon = Icons.security;
-        }
-
-        // Format time from timestamp
-        final timeString = timestamp != null
-            ? DateFormat('hh:mm a').format(date)
-            : 'Unknown time';
-
-        items.add({
-          'date': date,
-          'title': data['title'] ?? 'Scan Result',
-          'subtitle': data['body'] ?? 'No details available',
-          'time': timeString,
-          'icon': icon,
-          'read': data['read'] ?? false,
-          'docId': doc.id,
-        });
-      }
-
-      setState(() {
-        _historyItems = items;
-        _isLoading = false;
-      });
-    } catch (e) {
-      print('Error fetching history data: $e');
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
 
-  Future<void> _markAsRead(String docId) async {
-    try {
-      final User? currentUser = _auth.currentUser;
-      if (currentUser == null) return;
-
-      await _firestore
-          .collection('users')
-          .doc(currentUser.uid)
-          .collection('scanHistory')
-          .doc(docId)
-          .update({'read': true});
-
-      // Update local state
-      setState(() {
-        final index = _historyItems.indexWhere((item) => item['docId'] == docId);
-        if (index != -1) {
-          _historyItems[index]['read'] = true;
-        }
-      });
-    } catch (e) {
-      print('Error marking item as read: $e');
-    }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
-  List<Map<String, dynamic>> get _filteredHistoryItems {
-    final now = DateTime.now();
-    switch (_selectedFilter) {
-      case 'This Week':
-        return _historyItems.where((item) => _isSameWeek(item['date'], now)).toList();
-      case 'This Month':
-        return _historyItems.where((item) => _isSameMonth(item['date'], now)).toList();
-      case 'This Year':
-        return _historyItems.where((item) => _isSameYear(item['date'], now)).toList();
-      default: // 'All Time'
-        return _historyItems;
+  // Full _getRecommendation function from previous context
+  String _getRecommendation(String detectedClass) {
+    final recommendations = {
+      'check engine': [
+        'Visit a mechanic to diagnose the engine issue. This could indicate problems with emissions, fuel system, or engine performance.',
+        'Run an OBD-II scan to identify specific error codes and consult a professional for repairs.',
+        'Check for loose or damaged gas cap, as it can trigger this light. Tighten or replace if necessary.',
+      ],
+      'oil pressure': [
+        'Stop driving immediately and check oil levels. Low oil pressure can cause severe engine damage if ignored.',
+        'Inspect for oil leaks under the vehicle and have a mechanic address any issues found.',
+        'Ensure the oil pump is functioning correctly; a faulty pump may require replacement.',
+      ],
+      'battery warning': [
+        'Check battery connections and have the charging system tested. Your battery or alternator may need replacement.',
+        'Clean battery terminals to ensure a good connection and test the battery’s charge.',
+        'Inspect the alternator belt for wear or looseness, as it could affect charging.',
+      ],
+      'abs warning': [
+        'Have your Anti-lock Braking System inspected. This affects your vehicle\'s ability to brake safely, especially in emergency situations.',
+        'Check wheel speed sensors for dirt or damage, as they can trigger ABS issues.',
+        'Ensure ABS module and pump are functioning; a professional diagnostic is recommended.',
+      ],
+      'brake system': [
+        'Check brake fluid levels and have your brake system inspected immediately. Do not drive if brakes feel unresponsive.',
+        'Inspect brake pads and rotors for wear; replace if they are below recommended thickness.',
+        'Look for leaks in the brake lines or master cylinder, and have them repaired promptly.',
+      ],
+      'airbag warning': [
+        'Have your airbag system diagnosed. In an accident, airbags may not deploy properly with this warning active.',
+        'Check the airbag system’s fuse and connections for issues; replace or repair as needed.',
+        'Ensure the supplemental restraint system (SRS) module is functioning; professional repair may be required.',
+      ],
+      'temperature warning': [
+        'Safely pull over and let your engine cool down. Check coolant levels when safe. Continuing to drive may cause engine damage.',
+        'Inspect the radiator for blockages or damage and clear any debris.',
+        'Check the thermostat and water pump; a failure in either can cause overheating.',
+      ],
+      'tire pressure': [
+        'Check all tire pressures and inflate to the recommended levels. Inspect tires for damage or punctures.',
+        'Rotate tires if uneven wear is detected and check alignment to prevent future issues.',
+        'Consider replacing tires if tread depth is low or damage is irreparable.',
+      ],
+      'traction control': [
+        'Have the traction control system inspected, as it may affect vehicle stability in slippery conditions.',
+        'Check wheel speed sensors, as they are often linked to traction control issues.',
+        'Ensure the traction control module is functioning; a diagnostic scan is recommended.',
+      ],
+      'fuel system': [
+        'Inspect the fuel pump and filter; a clogged filter or failing pump may need replacement.',
+        'Check for contaminated fuel; drain and replace if necessary.',
+        'Have a mechanic diagnose fuel injectors, as issues here can trigger warnings.',
+      ],
+    };
+
+    String key = detectedClass.toLowerCase();
+    if (recommendations.containsKey(key)) {
+      final random = Random();
+      final recommendationList = recommendations[key]!;
+      return recommendationList[random.nextInt(recommendationList.length)];
     }
+    return 'Have a professional mechanic inspect this warning light to determine the exact issue and recommended repairs.';
   }
 
   bool _isSameWeek(DateTime date1, DateTime date2) {
@@ -149,18 +115,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return date1.year == date2.year;
   }
 
-  Future<void> _refreshHistory() async {
-    await _fetchHistoryData();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFFFF3EE),
+      backgroundColor: Colors.grey[100],
       appBar: _buildAppBar(),
-      body: RefreshIndicator(
-        onRefresh: _refreshHistory,
-        child: _buildBody(),
+      body: _buildBody(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // TODO: Navigate to scan screen
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Start a new scan')),
+          );
+        },
+        backgroundColor: const Color(0xFFE67E5E),
+        child: const Icon(Icons.camera_alt),
       ),
     );
   }
@@ -168,34 +137,135 @@ class _HistoryScreenState extends State<HistoryScreen> {
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       elevation: 0,
-      leading: Container(),
-      backgroundColor: Color(0xFFE67E5E),
-      title: Text(
-        'All History',
+      backgroundColor: const Color(0xFFE67E5E),
+      title: const Text(
+        'Scan History',
         style: TextStyle(
           color: Colors.white,
           fontSize: 20,
           fontWeight: FontWeight.w600,
         ),
       ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white),
+          onPressed: () => setState(() {}),
+        ),
+      ],
     );
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
-      return _buildLoadingState();
+    final user = _auth.currentUser;
+    if (user == null) {
+      return _buildEmptyState(message: 'Please sign in to view history.');
     }
 
-    if (_historyItems.isEmpty) {
-      return _buildEmptyState();
-    }
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('scanHistory')
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildLoadingState();
+        }
+        if (snapshot.hasError) {
+          return _buildEmptyState(message: 'Error: ${snapshot.error}');
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return _buildEmptyState();
+        }
 
-    return CustomScrollView(
-      slivers: [
-        _buildDateFilter(),
-        _buildHistoryList(),
-      ],
+        final items = _processHistoryItems(snapshot.data!.docs);
+        final filteredItems = _filterHistoryItems(items);
+
+        return CustomScrollView(
+          slivers: [
+            _buildSearchBar(),
+            _buildDateFilter(),
+            if (filteredItems.isEmpty)
+              SliverToBoxAdapter(
+                child: _buildEmptyState(
+                    message: 'No history items match your filter.'),
+              )
+            else
+              _buildHistoryList(filteredItems),
+          ],
+        );
+      },
     );
+  }
+
+  List<Map<String, dynamic>> _processHistoryItems(
+      List<QueryDocumentSnapshot> docs) {
+    final items = <Map<String, dynamic>>[];
+    for (var doc in docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final timestamp = data['timestamp'] as Timestamp?;
+      final date = timestamp?.toDate() ?? DateTime.now();
+      final scanType = data['scanType'] as String? ?? '';
+      final detections = (data['data'] as Map<String, dynamic>?)?['detections']
+      as List<dynamic>? ??
+          [];
+
+      IconData icon = Icons.search;
+      if (scanType == 'dashboard') {
+        icon = Icons.dashboard;
+      } else if (scanType.contains('battery')) {
+        icon = Icons.battery_charging_full;
+      } else if (scanType.contains('lock')) {
+        icon = Icons.lock_outline;
+      } else if (scanType.contains('security')) {
+        icon = Icons.security;
+      }
+
+      final timeString = timestamp != null
+          ? DateFormat('hh:mm a').format(date)
+          : 'Unknown time';
+
+      items.add({
+        'date': date,
+        'title': data['title'] ?? 'Scan Result',
+        'subtitle': data['body'] ?? 'No details available',
+        'time': timeString,
+        'icon': icon,
+        'read': data['read'] ?? false,
+        'docId': doc.id,
+        'detections': detections,
+      });
+    }
+    return items;
+  }
+
+  List<Map<String, dynamic>> _filterHistoryItems(
+      List<Map<String, dynamic>> items) {
+    final now = DateTime.now();
+    var filtered = items;
+
+    switch (_selectedFilter) {
+      case 'This Week':
+        filtered = filtered.where((item) => _isSameWeek(item['date'], now)).toList();
+        break;
+      case 'This Month':
+        filtered = filtered.where((item) => _isSameMonth(item['date'], now)).toList();
+        break;
+      case 'This Year':
+        filtered = filtered.where((item) => _isSameYear(item['date'], now)).toList();
+        break;
+    }
+
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((item) {
+        final title = item['title'].toString().toLowerCase();
+        final subtitle = item['subtitle'].toString().toLowerCase();
+        return title.contains(_searchQuery) || subtitle.contains(_searchQuery);
+      }).toList();
+    }
+
+    return filtered;
   }
 
   Widget _buildLoadingState() {
@@ -203,15 +273,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(
+          const CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE67E5E)),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
             'Loading history...',
             style: TextStyle(
-              color: Color(0xFFE67E5E),
+              color: Colors.grey[700],
               fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -219,26 +290,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({String? message}) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.history,
-            size: 80,
+            size: 100,
             color: Colors.grey[400],
-          ),
-          SizedBox(height: 16),
+          ).animate().fadeIn(duration: 500.ms).scale(),
+          const SizedBox(height: 16),
           Text(
-            'No history found',
+            message ?? 'No scan history found',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: Colors.grey[700],
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             'Your scan history will appear here',
             style: TextStyle(
@@ -246,17 +317,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
               color: Colors.grey[600],
             ),
           ),
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: _refreshHistory,
+            onPressed: () => setState(() {}),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFFE67E5E),
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              backgroundColor: const Color(0xFFE67E5E),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
-            child: Text(
+            child: const Text(
               'Refresh',
               style: TextStyle(
                 color: Colors.white,
@@ -269,37 +340,69 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  Widget _buildSearchBar() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Search history...',
+            prefixIcon: const Icon(Icons.search, color: Colors.grey),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDateFilter() {
     return SliverToBoxAdapter(
       child: Container(
         height: 50,
-        margin: EdgeInsets.symmetric(vertical: 16),
+        margin: const EdgeInsets.symmetric(vertical: 8),
         child: ListView(
           scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           children: [
-            _buildDateChip('All Time', isSelected: _selectedFilter == 'All Time'),
-            _buildDateChip('This Week', isSelected: _selectedFilter == 'This Week'),
-            _buildDateChip('This Month', isSelected: _selectedFilter == 'This Month'),
-            _buildDateChip('This Year', isSelected: _selectedFilter == 'This Year'),
+            _buildDateChip('All Time', Icons.history,
+                isSelected: _selectedFilter == 'All Time'),
+            _buildDateChip('This Week', Icons.calendar_today,
+                isSelected: _selectedFilter == 'This Week'),
+            _buildDateChip('This Month', Icons.calendar_month,
+                isSelected: _selectedFilter == 'This Month'),
+            _buildDateChip('This Year', Icons.date_range,
+                isSelected: _selectedFilter == 'This Year'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDateChip(String label, {bool isSelected = false}) {
+  Widget _buildDateChip(String label, IconData icon, {bool isSelected = false}) {
     return Container(
-      margin: EdgeInsets.only(right: 8),
+      margin: const EdgeInsets.only(right: 8),
       child: FilterChip(
         selected: isSelected,
-        label: Text(label),
+        label: Row(
+          children: [
+            Icon(icon, size: 18, color: isSelected ? Colors.white : Colors.black87),
+            const SizedBox(width: 4),
+            Text(label),
+          ],
+        ),
         onSelected: (bool selected) {
           setState(() {
             _selectedFilter = label;
           });
         },
-        selectedColor: Color(0xFFE67E5E),
+        selectedColor: const Color(0xFFE67E5E),
         labelStyle: TextStyle(
           color: isSelected ? Colors.white : Colors.black87,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -308,29 +411,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
+        elevation: isSelected ? 2 : 0,
       ),
     );
   }
 
-  Widget _buildHistoryList() {
-    final groupedItems = _groupHistoryItemsByDate(_filteredHistoryItems);
-
-    if (groupedItems.isEmpty) {
-      return SliverToBoxAdapter(
-        child: Container(
-          height: 200,
-          child: Center(
-            child: Text(
-              'No history items match your filter',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+  Widget _buildHistoryList(List<Map<String, dynamic>> items) {
+    final groupedItems = _groupHistoryItemsByDate(items);
 
     return SliverList(
       delegate: SliverChildBuilderDelegate(
@@ -342,14 +429,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHistoryGroup(DateFormat('MMMM d, y').format(date)),
-              ...items.map((item) => _buildHistoryItem(
-                title: item['title'],
-                subtitle: item['subtitle'],
-                time: item['time'],
-                icon: item['icon'],
-                isRead: item['read'] ?? false,
-                docId: item['docId'],
-              )),
+              ...items.map((item) => _buildHistoryItem(item)),
             ],
           );
         },
@@ -358,7 +438,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Map<DateTime, List<Map<String, dynamic>>> _groupHistoryItemsByDate(List<Map<String, dynamic>> items) {
+  Map<DateTime, List<Map<String, dynamic>>> _groupHistoryItemsByDate(
+      List<Map<String, dynamic>> items) {
     final Map<DateTime, List<Map<String, dynamic>>> groupedItems = {};
 
     for (var item in items) {
@@ -369,75 +450,66 @@ class _HistoryScreenState extends State<HistoryScreen> {
       groupedItems[date]!.add(item);
     }
 
-    // Sort dates in descending order
-    final sortedDates = groupedItems.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
-
-    final sortedGroupedItems = Map.fromEntries(
+    final sortedDates = groupedItems.keys.toList()..sort((a, b) => b.compareTo(a));
+    return Map.fromEntries(
       sortedDates.map((date) => MapEntry(date, groupedItems[date]!)),
     );
-
-    return sortedGroupedItems;
   }
 
   Widget _buildHistoryGroup(String title) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
       child: Text(
         title,
         style: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
-          color: Colors.black87,
+          color: Colors.grey[800],
         ),
       ),
     );
   }
 
-  Widget _buildHistoryItem({
-    required String title,
-    required String subtitle,
-    required String time,
-    required IconData icon,
-    required bool isRead,
-    required String docId,
-  }) {
+  Widget _buildHistoryItem(Map<String, dynamic> item) {
+    final isRead = item['read'] as bool;
+    final docId = item['docId'] as String;
+
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         if (!isRead) {
-          _markAsRead(docId);
+          await _markAsRead(docId);
         }
-        // TODO: Navigate to detailed view if needed
+        _showDetailDialog(item);
       },
       child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
-              offset: Offset(0, 2),
+              offset: const Offset(0, 2),
             ),
           ],
           border: !isRead
-              ? Border.all(color: Color(0xFFE67E5E), width: 2)
+              ? Border.all(color: const Color(0xFFE67E5E), width: 2)
               : null,
         ),
         child: ListTile(
-          contentPadding: EdgeInsets.all(16),
+          contentPadding: const EdgeInsets.all(16),
           leading: Stack(
             children: [
               Container(
-                padding: EdgeInsets.all(12),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Color(0xFFFFF3EE),
+                  color: const Color(0xFFFFF3EE),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  icon,
-                  color: Color(0xFFE67E5E),
+                  item['icon'] as IconData,
+                  color: const Color(0xFFE67E5E),
                   size: 24,
                 ),
               ),
@@ -448,7 +520,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Container(
                     width: 12,
                     height: 12,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: Color(0xFFE67E5E),
                       shape: BoxShape.circle,
                     ),
@@ -457,26 +529,29 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ],
           ),
           title: Text(
-            title,
+            item['title'],
             style: TextStyle(
-              fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+              fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
               fontSize: 16,
+              color: Colors.grey[900],
             ),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
-                subtitle,
+                item['subtitle'],
                 style: TextStyle(
                   color: isRead ? Colors.grey[600] : Colors.black87,
                   fontSize: 14,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
-                time,
+                item['time'],
                 style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 12,
@@ -485,6 +560,104 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ],
           ),
         ),
+      ),
+    ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.2, end: 0);
+  }
+
+  Future<void> _markAsRead(String docId) async {
+    try {
+      await _firestore
+          .collection('users')
+          .doc(_auth.currentUser!.uid)
+          .collection('scanHistory')
+          .doc(docId)
+          .update({'read': true});
+    } catch (e) {
+      print('Error marking item as read: $e');
+    }
+  }
+
+  void _showDetailDialog(Map<String, dynamic> item) {
+    final detections = item['detections'] as List<dynamic>;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          item['title'],
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                item['subtitle'],
+                style: TextStyle(color: Colors.grey[700]),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Detected Issues:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              if (detections.isEmpty)
+                const Text('No issues detected in this scan.')
+              else
+                ...detections.map((detection) {
+                  final detectedClass =
+                      detection['predicted_class'] as String? ?? 'Unknown';
+                  final confidence =
+                      detection['confidence'] as double? ?? 0.0;
+                  final recommendation = _getRecommendation(detectedClass);
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              detectedClass,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              'Confidence: ${(confidence * 100).toStringAsFixed(0)}%',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Recommendation: $recommendation',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Close',
+              style: TextStyle(color: Color(0xFFE67E5E)),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,7 +1,8 @@
-import 'package:drivebuddy/Features/Camera_Scanning_and_Results/presentation/camera_scanning_view.dart';
 import 'package:drivebuddy/core/Utils/Shared%20Methods.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+
+import '../../../Camera_Scanning_and_Results/presentation/Camera_Scanning_View.dart';
 
 class MainScreenView extends StatefulWidget {
   final String uid;
@@ -21,7 +22,7 @@ class MainScreenView extends StatefulWidget {
 
 class _MainScreenViewState extends State<MainScreenView> {
   void _performScan() {
-    navigateTo(context, const CameraScanScreen());
+    navigateTo(context,  CameraScanScreen());
   }
 
   @override

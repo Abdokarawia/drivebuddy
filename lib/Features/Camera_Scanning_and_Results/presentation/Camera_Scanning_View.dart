@@ -1,15 +1,16 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:dio/dio.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 class CameraScanScreen extends StatefulWidget {
@@ -35,12 +36,15 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
 
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+    ),
+  );
 
-  String apiUrl = 'https://5f9a-197-35-213-152.ngrok-free.app/detect'; // Default URL
+  String apiUrl =
+      'https://5f9a-197-35-213-152.ngrok-free.app/detect'; // Default URL
 
   @override
   void initState() {
@@ -55,10 +59,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     )..repeat(reverse: true);
 
     _animation = Tween<double>(begin: 0.7, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
     if (!kIsWeb) {
@@ -83,13 +84,17 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         print('Message data: ${message.data}');
 
         if (message.notification != null) {
-          print('Message also contained a notification: ${message.notification}');
+          print(
+            'Message also contained a notification: ${message.notification}',
+          );
 
           // Show in-app notification with SnackBar
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(message.notification?.body ?? 'New scan notification'),
+                content: Text(
+                  message.notification?.body ?? 'New scan notification',
+                ),
                 backgroundColor: const Color(0xFFE67E5E),
                 duration: const Duration(seconds: 5),
                 action: SnackBarAction(
@@ -122,10 +127,9 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
       // Save the token to Firestore for the current user
       if (token != null && _auth.currentUser != null) {
-        await _firestore
-            .collection('users')
-            .doc(_auth.currentUser!.uid)
-            .set({'fcmToken': token}, SetOptions(merge: true));
+        await _firestore.collection('users').doc(_auth.currentUser!.uid).set({
+          'fcmToken': token,
+        }, SetOptions(merge: true));
       }
     }
   }
@@ -133,7 +137,8 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   Future<void> _fetchApiUrl() async {
     try {
       // Reference to the Firestore document
-      DocumentSnapshot doc = await FirebaseFirestore.instance
+      DocumentSnapshot doc =
+      await FirebaseFirestore.instance
           .collection('AI Model') // Replace with your collection name
           .doc('8mIxxO0s8Ce6mGbELy9D') // Document ID
           .get();
@@ -143,17 +148,31 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         final fetchedUrl = data['url'] as String?;
 
         // Assert that the URL exists and is not null
-        assert(fetchedUrl != null, 'Firebase document must contain a "url" field');
+        assert(
+        fetchedUrl != null,
+        'Firebase document must contain a "url" field',
+        );
         assert(fetchedUrl!.isNotEmpty, 'Firebase URL cannot be empty');
 
         // Validate the URL
         final uri = Uri.tryParse(fetchedUrl!);
-        assert(uri != null, 'Invalid URL format fetched from Firebase: $fetchedUrl');
-        assert(uri!.hasScheme, 'URL must have a scheme (e.g., http or https): $fetchedUrl');
+        assert(
+        uri != null,
+        'Invalid URL format fetched from Firebase: $fetchedUrl',
+        );
+        assert(
+        uri!.hasScheme,
+        'URL must have a scheme (e.g., http or https): $fetchedUrl',
+        );
         // Construct the full API URL
         final validatedUrl = '$fetchedUrl/detect';
-        final validatedUri = Uri.parse(validatedUrl); // Ensure the final URL is valid
-        assert(validatedUri.isAbsolute, 'Final API URL must be absolute: $validatedUrl');
+        final validatedUri = Uri.parse(
+          validatedUrl,
+        ); // Ensure the final URL is valid
+        assert(
+        validatedUri.isAbsolute,
+        'Final API URL must be absolute: $validatedUrl',
+        );
 
         setState(() {
           apiUrl = validatedUrl;
@@ -189,12 +208,14 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
     _cameraController = CameraController(
       cameraDescription,
-      ResolutionPreset.max,
+      ResolutionPreset.high,
       imageFormatGroup: ImageFormatGroup.jpeg,
     );
 
     try {
       await _cameraController!.initialize();
+      await _cameraController!.lockCaptureOrientation(DeviceOrientation.landscapeRight);
+
       if (!mounted) return;
       setState(() => _isCameraInitialized = true);
     } catch (e) {
@@ -212,7 +233,8 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   }
 
   Future<void> _toggleFlash() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    if (_cameraController == null || !_cameraController!.value.isInitialized)
+      return;
 
     setState(() {
       _isFlashOn = !_isFlashOn;
@@ -226,13 +248,15 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     if (_availableCameras == null || _availableCameras!.length < 2) return;
 
     setState(() {
-      _selectedCameraIndex = (_selectedCameraIndex + 1) % _availableCameras!.length;
+      _selectedCameraIndex =
+          (_selectedCameraIndex + 1) % _availableCameras!.length;
     });
     await _switchCamera(_availableCameras![_selectedCameraIndex]);
   }
 
   Future<void> _captureImage() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    if (_cameraController == null || !_cameraController!.value.isInitialized)
+      return;
 
     setState(() => _isProcessing = true);
     try {
@@ -276,7 +300,10 @@ class _CameraScanScreenState extends State<CameraScanScreen>
           });
         } else {
           return FormData.fromMap({
-            'image': await MultipartFile.fromFile(image.path, filename: image.name),
+            'image': await MultipartFile.fromFile(
+              image.path,
+              filename: image.name,
+            ),
           });
         }
       }
@@ -288,7 +315,9 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       );
 
       if (response.statusCode == null || response.statusCode! >= 500) {
-        print("Retrying due to initial failure (status: ${response.statusCode})");
+        print(
+          "Retrying due to initial failure (status: ${response.statusCode})",
+        );
         response = await _dio.post(
           apiUrl,
           data: await createFormData(),
@@ -300,7 +329,8 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       print('Response data: ${response.data}');
 
       if (response.statusCode == 200) {
-        final jsonResponse = response.data is String ? jsonDecode(response.data) : response.data;
+        final jsonResponse =
+        response.data is String ? jsonDecode(response.data) : response.data;
 
         // Save scan result to Firestore history
         await _saveScanToHistory(image, jsonResponse);
@@ -310,7 +340,9 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
         _showScanResultsBottomSheet(image, jsonResponse);
       } else {
-        _showErrorSnackbar(message: 'API request failed with status: ${response.statusCode}');
+        _showErrorSnackbar(
+          message: 'API request failed with status: ${response.statusCode}',
+        );
       }
     } catch (e) {
       print("Error sending image to API: $e");
@@ -318,8 +350,14 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
-  Future<void> _saveScanToHistory(XFile image, Map<String, dynamic> apiResponse) async {
+  Future<void> _saveScanToHistory(
+      XFile image,
+      Map<String, dynamic> apiResponse,
+      ) async {
     try {
+      final FirebaseAuth _auth = FirebaseAuth.instance;
+      final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
       if (_auth.currentUser == null) {
         print('No user is signed in, cannot save scan history');
         return;
@@ -331,36 +369,41 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       // Get detections from API response
       final detections = apiResponse['detections'] as List<dynamic>? ?? [];
 
-      // Create notification message based on detections - same as in notification
+      // Create notification message based on all detections
       String notificationTitle = 'Dashboard Scan Complete';
       String notificationBody = 'Your dashboard scan has been processed.';
 
       if (detections.isNotEmpty) {
-        final firstDetection = detections.first;
-        final detectedClass = firstDetection['predicted_class'] as String? ?? 'Unknown';
-        final confidence = firstDetection['confidence'] as double? ?? 0.0;
+        // Summarize all detections for the notification
+        final detectionSummaries = detections.map((detection) {
+          final detectedClass = detection['predicted_class'] as String? ?? 'Unknown';
+          final confidence = detection['confidence'] as double? ?? 0.0;
+          return '$detectedClass (${(confidence * 100).toStringAsFixed(0)}% confidence)';
+        }).join(', ');
 
-        notificationTitle = 'Dashboard Scan: $detectedClass Detected';
-        notificationBody = 'Detected with ${(confidence * 100).toStringAsFixed(0)}% confidence. Check results for details.';
+        notificationTitle = 'Dashboard Scan: Issues Detected';
+        notificationBody = 'Detected: $detectionSummaries. Check results for details.';
+      } else {
+        notificationBody = 'No issues detected in the dashboard scan.';
       }
 
-      // Create scan history document with the same structure as notification
+      // Create scan history document
       final historyRef = await _firestore.collection('history').add({
         'userId': userId,
         'timestamp': timestamp,
         'imagePath': image.path, // Store path instead of base64
-        'title': notificationTitle,   // Same as notification
-        'body': notificationBody,     // Same as notification
-        'read': false,                // Same as notification
-        'type': 'scan_result',        // Same as notification
+        'title': notificationTitle,
+        'body': notificationBody,
+        'read': false,
+        'type': 'scan_result',
         'data': {
-          'detections': detections,
+          'detections': detections, // Store all detections
           'scanType': 'dashboard',
         },
         'deviceInfo': {
           'platform': kIsWeb ? 'web' : Platform.operatingSystem,
           'isWeb': kIsWeb,
-        }
+        },
       });
 
       print('Scan saved to history with ID: ${historyRef.id}');
@@ -375,15 +418,15 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         'historyRef': historyRef.id,
         'timestamp': timestamp,
         'scanType': 'dashboard',
-        'title': notificationTitle,  // Adding title for consistency
-        'body': notificationBody,    // Adding body for consistency
-        'read': false,               // Adding read status
+        'title': notificationTitle,
+        'body': notificationBody,
+        'read': false,
       });
-
     } catch (e) {
       print('Error saving scan to history: $e');
     }
   }
+
 
   Future<void> _createScanNotification(Map<String, dynamic> apiResponse) async {
     try {
@@ -404,11 +447,13 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
       if (detections.isNotEmpty) {
         final firstDetection = detections.first;
-        final detectedClass = firstDetection['predicted_class'] as String? ?? 'Unknown';
+        final detectedClass =
+            firstDetection['predicted_class'] as String? ?? 'Unknown';
         final confidence = firstDetection['confidence'] as double? ?? 0.0;
 
         notificationTitle = 'Dashboard Scan: $detectedClass Detected';
-        notificationBody = 'Detected with ${(confidence * 100).toStringAsFixed(0)}% confidence. Check results for details.';
+        notificationBody =
+        'Detected with ${(confidence * 100).toStringAsFixed(0)}% confidence. Check results for details.';
       }
 
       // Create notification in Firestore
@@ -419,29 +464,30 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         'body': notificationBody,
         'read': false,
         'type': 'scan_result',
-        'data': {
-          'detections': detections,
-          'scanType': 'dashboard',
-        }
+        'data': {'detections': detections, 'scanType': 'dashboard'},
       });
 
       print('Notification created with ID: ${notificationRef.id}');
-
     } catch (e) {
       print('Error creating notification: $e');
     }
   }
 
-  void _showScanResultsBottomSheet(XFile image, Map<String, dynamic> apiResponse) {
+  void _showScanResultsBottomSheet(
+      XFile image,
+      Map<String, dynamic> apiResponse,
+      ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
+      builder:
+          (context) => DraggableScrollableSheet(
         initialChildSize: 0.8,
         minChildSize: 0.4,
         maxChildSize: 0.95,
-        builder: (context, scrollController) => ScanResultsScreen(
+        builder:
+            (context, scrollController) => ScanResultsScreen(
           image: image,
           apiResponse: apiResponse,
           onRetry: () {
@@ -472,6 +518,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // Full screen camera preview
             if (_isCameraInitialized)
               CameraPreview(_cameraController!)
             else
@@ -480,19 +527,23 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                   valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE67E5E)),
                 ),
               ),
+            // Scan overlay
             _buildScanOverlay(),
+            // Header controls
             Positioned(
               top: 0,
               left: 0,
               right: 0,
               child: _buildHeader(context),
             ),
+            // Bottom controls
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
               child: _buildBottomControls(context),
             ),
+            // Processing indicator
             if (_isProcessing)
               Container(
                 color: Colors.black54,
@@ -525,10 +576,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Colors.black.withOpacity(0.5),
-            Colors.transparent,
-          ],
+          colors: [Colors.black.withOpacity(0.5), Colors.transparent],
         ),
       ),
       child: Row(
@@ -608,11 +656,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Iconsax.scan,
-                      color: Color(0xFFE67E5E),
-                      size: 48,
-                    ),
+                    Icon(Iconsax.scan, color: Color(0xFFE67E5E), size: 48),
                     SizedBox(height: 16),
                     Text(
                       'Position Dashboard Within Frame',
@@ -640,10 +684,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
-          colors: [
-            Colors.black.withOpacity(0.7),
-            Colors.transparent,
-          ],
+          colors: [Colors.black.withOpacity(0.7), Colors.transparent],
         ),
       ),
       child: Row(
@@ -666,10 +707,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
               height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: const Color(0xFFE67E5E),
-                  width: 4,
-                ),
+                border: Border.all(color: const Color(0xFFE67E5E), width: 4),
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
@@ -789,200 +827,219 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-        Center(
-        child: Container(
-        width: 50,
-          height: 6,
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-      const Padding(
-        padding: EdgeInsets.only(bottom: 12),
-        child: Text(
-          'Scan Results',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ),
-      Container(
-        height: 260,
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              blurRadius: 8,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: (_imageBytes != null
-              ? Image.memory(
-            _imageBytes!,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return const Center(
-                child: Text(
-                  'Image Load Failed',
-                  style: TextStyle(color: Colors.redAccent, fontSize: 16),
-                ),
-              );
-            },
-          )
-              : const Center(
-            child: CircularProgressIndicator(
-              color: Color(0xFFE67E5E),
-            ),
-          )),
-        ),
-      ),
-      FadeTransition(
-          opacity: _fadeAnimation,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 6,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-            const Row(
-            children: [
-            Icon(Iconsax.map, color: Color(0xFFE67E5E), size: 20),
-            SizedBox(width: 8),
-            Text(
-              'AI Analysis',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.black87,
-              ),
-            ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (detections.isNotEmpty)
-      ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: detections.length,
-      itemBuilder: (context, index) {
-        final detection = detections[index];
-        final detectedClass = detection['predicted_class'] as String? ?? 'Unknown';
-        final confidence = detection['confidence'] as double? ?? 0.0;
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[200]!, width: 1),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
+            Center(
+              child: Container(
+                width: 50,
+                height: 6,
+                margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE67E5E).withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Iconsax.warning_2,
-                  color: Color(0xFFE67E5E),
-                  size: 16,
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      detectedClass,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+            ),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Scan Results',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            Container(
+              height: 260,
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child:
+                (_imageBytes != null
+                    ? Image.memory(
+                  _imageBytes!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Center(
+                      child: Text(
+                        'Image Load Failed',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 16,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Confidence: ${(confidence * 100).toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                    );
+                  },
+                )
+                    : const Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFFE67E5E),
+                  ),
+                )),
+              ),
+            ),
+            FadeTransition(
+              opacity: _fadeAnimation,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 6,
+                      spreadRadius: 1,
                     ),
                   ],
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Iconsax.map, color: Color(0xFFE67E5E), size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'AI Analysis',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (detections.isNotEmpty)
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: detections.length,
+                        itemBuilder: (context, index) {
+                          final detection = detections[index];
+                          final detectedClass =
+                              detection['predicted_class'] as String? ??
+                                  'Unknown';
+                          final confidence =
+                              detection['confidence'] as double? ?? 0.0;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                              horizontal: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.grey[200]!,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFFE67E5E,
+                                    ).withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Iconsax.warning_2,
+                                    color: Color(0xFFE67E5E),
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        detectedClass,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Confidence: ${(confidence * 100).toStringAsFixed(1)}%',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.grey[200]!,
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Iconsax.clipboard_close,
+                              size: 28,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'No issues detected',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Your dashboard scan appears normal',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        );
-      },
-    )
-    else
-    Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-    color: Colors.grey[50],
-    borderRadius: BorderRadius.circular(8),
-    border: Border.all(color: Colors.grey[200]!, width: 1),
-    ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Iconsax.clipboard_close,
-            size: 28,
-            color: Colors.grey,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'No issues detected',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[700],
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Your dashboard scan appears normal',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    ),
-                ],
-            ),
-          ),
-      ),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -994,7 +1051,10 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: const Color(0xFFE67E5E),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
@@ -1011,7 +1071,10 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: Colors.black87,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
@@ -1040,7 +1103,11 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                   children: [
                     const Row(
                       children: [
-                        Icon(Iconsax.message, color: Color(0xFFE67E5E), size: 20),
+                        Icon(
+                          Iconsax.message,
+                          color: Color(0xFFE67E5E),
+                          size: 20,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'Recommended Actions',
@@ -1059,10 +1126,14 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                       itemCount: detections.length,
                       itemBuilder: (context, index) {
                         final detection = detections[index];
-                        final detectedClass = detection['predicted_class'] as String? ?? 'Unknown';
+                        final detectedClass =
+                            detection['predicted_class'] as String? ??
+                                'Unknown';
 
                         // Generate recommendations based on detected class
-                        String recommendation = _getRecommendation(detectedClass);
+                        String recommendation = _getRecommendation(
+                          detectedClass,
+                        );
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
@@ -1070,7 +1141,10 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                           decoration: BoxDecoration(
                             color: Colors.blue[50],
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.blue[100]!, width: 1),
+                            border: Border.all(
+                              color: Colors.blue[100]!,
+                              width: 1,
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1106,28 +1180,74 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
     );
   }
 
+
   String _getRecommendation(String detectedClass) {
-    // Generate recommendations based on detected dashboard issue
-    switch (detectedClass.toLowerCase()) {
-    case 'check engine':
-    return 'Visit a mechanic to diagnose the engine issue. This could indicate problems with emissions, fuel system, or engine performance.';
-    case 'oil pressure':
-    return 'Stop driving immediately and check oil levels. Low oil pressure can cause severe engine damage if ignored.';
-    case 'battery warning':
-    return 'Check battery connections and have the charging system tested. Your battery or alternator may need replacement.';
-    case 'abs warning':
-    return "Have your Anti-lock Braking System inspected. This affects your vehicle's ability to brake safely, especially in emergency situations.";
-    case 'brake system':
-    return 'Check brake fluid levels and have your brake system inspected immediately. Do not drive if brakes feel unresponsive.';
-    case 'airbag warning':
-    return 'Have your airbag system diagnosed. In an accident, airbags may not deploy properly with this warning active.';
-    case 'temperature warning':
-    return 'Safely pull over and let your engine cool down. Check coolant levels when safe. Continuing to drive may cause engine damage.';
-    case 'tire pressure':
-    return 'Check all tire pressures and inflate to the recommended levels. Inspect tires for damage or punctures.';
-    default:
-    return 'Have a professional mechanic inspect this warning light to determine the exact issue and recommended repairs.';
+    // Map of detected dashboard issues to a list of possible recommendations
+    final recommendations = {
+      'check engine': [
+        'Visit a mechanic to diagnose the engine issue. This could indicate problems with emissions, fuel system, or engine performance.',
+        'Run an OBD-II scan to identify specific error codes and consult a professional for repairs.',
+        'Check for loose or damaged gas cap, as it can trigger this light. Tighten or replace if necessary.',
+      ],
+      'oil pressure': [
+        'Stop driving immediately and check oil levels. Low oil pressure can cause severe engine damage if ignored.',
+        'Inspect for oil leaks under the vehicle and have a mechanic address any issues found.',
+        'Ensure the oil pump is functioning correctly; a faulty pump may require replacement.',
+      ],
+      'battery warning': [
+        'Check battery connections and have the charging system tested. Your battery or alternator may need replacement.',
+        'Clean battery terminals to ensure a good connection and test the battery’s charge.',
+        'Inspect the alternator belt for wear or looseness, as it could affect charging.',
+      ],
+      'abs warning': [
+        "Have your Anti-lock Braking System inspected. This affects your vehicle's ability to brake safely, especially in emergency situations.",
+        'Check wheel speed sensors for dirt or damage, as they can trigger ABS issues.',
+        'Ensure ABS module and pump are functioning; a professional diagnostic is recommended.',
+      ],
+      'brake system': [
+        'Check brake fluid levels and have your brake system inspected immediately. Do not drive if brakes feel unresponsive.',
+        'Inspect brake pads and rotors for wear; replace if they are below recommended thickness.',
+        'Look for leaks in the brake lines or master cylinder, and have them repaired promptly.',
+      ],
+      'airbag warning': [
+        'Have your airbag system diagnosed. In an accident, airbags may not deploy properly with this warning active.',
+        'Check the airbag system’s fuse and connections for issues; replace or repair as needed.',
+        'Ensure the supplemental restraint system (SRS) module is functioning; professional repair may be required.',
+      ],
+      'temperature warning': [
+        'Safely pull over and let your engine cool down. Check coolant levels when safe. Continuing to drive may cause engine damage.',
+        'Inspect the radiator for blockages or damage and clear any debris.',
+        'Check the thermostat and water pump; a failure in either can cause overheating.',
+      ],
+      'tire pressure': [
+        'Check all tire pressures and inflate to the recommended levels. Inspect tires for damage or punctures.',
+        'Rotate tires if uneven wear is detected and check alignment to prevent future issues.',
+        'Consider replacing tires if tread depth is low or damage is irreparable.',
+      ],
+      'traction control': [
+        'Have the traction control system inspected, as it may affect vehicle stability in slippery conditions.',
+        'Check wheel speed sensors, as they are often linked to traction control issues.',
+        'Ensure the traction control module is functioning; a diagnostic scan is recommended.',
+      ],
+      'fuel system': [
+        'Inspect the fuel pump and filter; a clogged filter or failing pump may need replacement.',
+        'Check for contaminated fuel; drain and replace if necessary.',
+        'Have a mechanic diagnose fuel injectors, as issues here can trigger warnings.',
+      ],
+    };
+
+    // Convert detectedClass to lowercase for case-insensitive matching
+    String key = detectedClass.toLowerCase();
+
+    // If the detected class exists in the map, select a random recommendation
+    if (recommendations.containsKey(key)) {
+      final random = Random();
+      final recommendationList = recommendations[key]!;
+      return recommendationList[random.nextInt(recommendationList.length)];
     }
+
+    // Default response for unrecognized issues
+    return 'Have a professional mechanic inspect this warning light to determine the exact issue and recommended repairs.';
   }
 }
 
@@ -1135,6 +1255,7 @@ class MyHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     return super.createHttpClient(context)
-      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+      ..badCertificateCallback =
+          (X509Certificate cert, String host, int port) => true;
   }
 }

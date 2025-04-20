@@ -75,14 +75,6 @@ class NotificationModel {
     );
   }
 
-  IconData get iconData {
-    // Convert string to IconData or use a default
-    try {
-      return IconData(int.parse(icon), fontFamily: 'MaterialIcons');
-    } catch (e) {
-      return Icons.notifications;
-    }
-  }
 
   String get timeAgo {
     final now = DateTime.now();
@@ -230,7 +222,8 @@ class _NotificationScreenState extends State<NotificationScreen>
           ),
           title: Row(
             children: [
-              Icon(notification.iconData, color: Color(0xFFE67E5E)),
+              Icon(                        Icons.notifications,
+              color: Color(0xFFE67E5E)),
               SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -644,7 +637,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
-                        notification.iconData,
+                        Icons.notifications,
                         color: Color(0xFFE67E5E),
                         size: 24,
                       ),
