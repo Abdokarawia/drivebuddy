@@ -978,14 +978,14 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
       final solution = _getSolution(title);
 
       final description = '''
-        Vehicle Issue Detection Report
-        Issue: $title
-        Occurrence Number: #$count
-        ${technicalInfo}
-        Recommended Solution: ${solution}
-        
-        Note: Please address this issue promptly to ensure vehicle safety and reliability.
-        ''';
+Vehicle Issue Detection Report
+Issue: $title
+Occurrence Number: #$count
+${technicalInfo}
+Recommended Solution: ${solution}
+
+Note: Please address this issue promptly to ensure vehicle safety and reliability.
+''';
 
       _savedIssues.clear();
 
@@ -1291,44 +1291,27 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Detected Issues (${detections.length})',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+            Flexible(
+              child: Text(
+                'Detected Issues (${detections.length})',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
               ),
             ),
             SizedBox(width: 15,),
             Text(
               'Choose one to show the details :',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 color:  Colors.red,
                 fontWeight: FontWeight.w500,
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE67E5E).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: const Color(0xFFE67E5E).withOpacity(0.5),
-              width: 1,
-            ),
-          ),
-          child: Icon(
-            Iconsax.info_circle,
-            size: 20,
-            color: const Color(0xFFE67E5E),
-          ),
         ),
         const SizedBox(height: 12),
         ListView.builder(
