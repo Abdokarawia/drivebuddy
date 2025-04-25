@@ -43,7 +43,7 @@ class _TabsScreenState extends State<TabsScreen> {
             email: widget.email,
           ),
           HistoryScreen(),
-          NotificationScreen(userId: widget.uid),
+          NotificationScreen(),
           ProfileScreen(uid: widget.uid),
         ],
       ),

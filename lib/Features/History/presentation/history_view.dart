@@ -1,660 +1,704 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'dart:math';
+import 'package:iconsax/iconsax.dart';
+import 'package:intl/intl.dart';
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+  const HistoryScreen({Key? key}) : super(key: key);
 
   @override
   _HistoryScreenState createState() => _HistoryScreenState();
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  String _selectedFilter = 'All Time';
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
-
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _historyItems = [];
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.toLowerCase();
-      });
+    _fetchHistoryData();
+  }
+
+  Future<void> _fetchHistoryData() async {
+    setState(() {
+      _isLoading = true;
     });
-  }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          _isLoading = false;
+          _historyItems = [];
+        });
+        return;
+      }
 
-  // Full _getRecommendation function from previous context
-  String _getRecommendation(String detectedClass) {
-    final recommendations = {
-      'check engine': [
-        'Visit a mechanic to diagnose the engine issue. This could indicate problems with emissions, fuel system, or engine performance.',
-        'Run an OBD-II scan to identify specific error codes and consult a professional for repairs.',
-        'Check for loose or damaged gas cap, as it can trigger this light. Tighten or replace if necessary.',
-      ],
-      'oil pressure': [
-        'Stop driving immediately and check oil levels. Low oil pressure can cause severe engine damage if ignored.',
-        'Inspect for oil leaks under the vehicle and have a mechanic address any issues found.',
-        'Ensure the oil pump is functioning correctly; a faulty pump may require replacement.',
-      ],
-      'battery warning': [
-        'Check battery connections and have the charging system tested. Your battery or alternator may need replacement.',
-        'Clean battery terminals to ensure a good connection and test the battery’s charge.',
-        'Inspect the alternator belt for wear or looseness, as it could affect charging.',
-      ],
-      'abs warning': [
-        'Have your Anti-lock Braking System inspected. This affects your vehicle\'s ability to brake safely, especially in emergency situations.',
-        'Check wheel speed sensors for dirt or damage, as they can trigger ABS issues.',
-        'Ensure ABS module and pump are functioning; a professional diagnostic is recommended.',
-      ],
-      'brake system': [
-        'Check brake fluid levels and have your brake system inspected immediately. Do not drive if brakes feel unresponsive.',
-        'Inspect brake pads and rotors for wear; replace if they are below recommended thickness.',
-        'Look for leaks in the brake lines or master cylinder, and have them repaired promptly.',
-      ],
-      'airbag warning': [
-        'Have your airbag system diagnosed. In an accident, airbags may not deploy properly with this warning active.',
-        'Check the airbag system’s fuse and connections for issues; replace or repair as needed.',
-        'Ensure the supplemental restraint system (SRS) module is functioning; professional repair may be required.',
-      ],
-      'temperature warning': [
-        'Safely pull over and let your engine cool down. Check coolant levels when safe. Continuing to drive may cause engine damage.',
-        'Inspect the radiator for blockages or damage and clear any debris.',
-        'Check the thermostat and water pump; a failure in either can cause overheating.',
-      ],
-      'tire pressure': [
-        'Check all tire pressures and inflate to the recommended levels. Inspect tires for damage or punctures.',
-        'Rotate tires if uneven wear is detected and check alignment to prevent future issues.',
-        'Consider replacing tires if tread depth is low or damage is irreparable.',
-      ],
-      'traction control': [
-        'Have the traction control system inspected, as it may affect vehicle stability in slippery conditions.',
-        'Check wheel speed sensors, as they are often linked to traction control issues.',
-        'Ensure the traction control module is functioning; a diagnostic scan is recommended.',
-      ],
-      'fuel system': [
-        'Inspect the fuel pump and filter; a clogged filter or failing pump may need replacement.',
-        'Check for contaminated fuel; drain and replace if necessary.',
-        'Have a mechanic diagnose fuel injectors, as issues here can trigger warnings.',
-      ],
-    };
-
-    String key = detectedClass.toLowerCase();
-    if (recommendations.containsKey(key)) {
-      final random = Random();
-      final recommendationList = recommendations[key]!;
-      return recommendationList[random.nextInt(recommendationList.length)];
-    }
-    return 'Have a professional mechanic inspect this warning light to determine the exact issue and recommended repairs.';
-  }
-
-  bool _isSameWeek(DateTime date1, DateTime date2) {
-    final startOfWeek = date2.subtract(Duration(days: date2.weekday - 1));
-    final endOfWeek = startOfWeek.add(Duration(days: 6));
-    return date1.isAfter(startOfWeek.subtract(Duration(days: 1))) &&
-        date1.isBefore(endOfWeek.add(Duration(days: 1)));
-  }
-
-  bool _isSameMonth(DateTime date1, DateTime date2) {
-    return date1.year == date2.year && date1.month == date2.month;
-  }
-
-  bool _isSameYear(DateTime date1, DateTime date2) {
-    return date1.year == date2.year;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: _buildAppBar(),
-      body: _buildBody(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Navigate to scan screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Start a new scan')),
-          );
-        },
-        backgroundColor: const Color(0xFFE67E5E),
-        child: const Icon(Icons.camera_alt),
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      elevation: 0,
-      backgroundColor: const Color(0xFFE67E5E),
-      title: const Text(
-        'Scan History',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white),
-          onPressed: () => setState(() {}),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBody() {
-    final user = _auth.currentUser;
-    if (user == null) {
-      return _buildEmptyState(message: 'Please sign in to view history.');
-    }
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('scanHistory')
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('history')
+          .where('userId', isEqualTo: user.uid)
+      // Removed the isShow filter as requested
           .orderBy('timestamp', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildLoadingState();
-        }
-        if (snapshot.hasError) {
-          return _buildEmptyState(message: 'Error: ${snapshot.error}');
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return _buildEmptyState();
-        }
+          .get();
 
-        final items = _processHistoryItems(snapshot.data!.docs);
-        final filteredItems = _filterHistoryItems(items);
+      final items = querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
 
-        return CustomScrollView(
-          slivers: [
-            _buildSearchBar(),
-            _buildDateFilter(),
-            if (filteredItems.isEmpty)
-              SliverToBoxAdapter(
-                child: _buildEmptyState(
-                    message: 'No history items match your filter.'),
-              )
-            else
-              _buildHistoryList(filteredItems),
+      // Handle deduplication based on title
+      final Map<String, Map<String, dynamic>> deduplicated = {};
+
+      for (var item in items) {
+        final title = item['title'] ?? 'Unknown Issue';
+
+        if (deduplicated.containsKey(title)) {
+          // Increment count for duplicates
+          deduplicated[title]!['count'] = (deduplicated[title]!['count'] ?? 1) + 1;
+
+          // Keep the most recent timestamp
+          final currentTimestamp = deduplicated[title]!['timestamp'] as Timestamp?;
+          final newTimestamp = item['timestamp'] as Timestamp?;
+
+          if (currentTimestamp != null && newTimestamp != null) {
+            if (newTimestamp.compareTo(currentTimestamp) > 0) {
+              deduplicated[title]!['timestamp'] = newTimestamp;
+            }
+          }
+
+          // Store all document IDs for this issue
+          if (!deduplicated[title]!.containsKey('relatedIds')) {
+            // Explicitly create a String list
+            deduplicated[title]!['relatedIds'] = <String>[deduplicated[title]!['id']];
+          }
+          // Explicitly add as String
+          (deduplicated[title]!['relatedIds'] as List).add(item['id']);
+
+        } else {
+          // First occurrence of this title
+          item['count'] = 1;
+          deduplicated[title] = item;
+        }
+      }
+
+      setState(() {
+        _historyItems = deduplicated.values.toList();
+        _historyItems.sort((a, b) {
+          final aTimestamp = a['timestamp'] as Timestamp?;
+          final bTimestamp = b['timestamp'] as Timestamp?;
+          if (aTimestamp == null || bTimestamp == null) return 0;
+          return bTimestamp.compareTo(aTimestamp); // Keep in descending order
+        });
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error fetching history data: $e');
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading history: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteHistoryItem(String documentId, dynamic relatedIds) async {
+    // Add debug logs to understand the data
+    print('Document ID to delete: $documentId');
+    print('Related IDs type: ${relatedIds?.runtimeType}');
+    print('Related IDs content: $relatedIds');
+
+    // Show confirmation dialog before deleting
+    bool confirmDelete = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Issue'),
+          content: const Text('Are you sure you want to remove this issue from your history?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
           ],
+        );
+      },
+    ) ?? false;
+
+    if (!confirmDelete) return;
+
+    try {
+      // Handle different types of relatedIds
+      List<String> idsToDelete = [];
+
+      if (relatedIds != null) {
+        if (relatedIds is List) {
+          for (var id in relatedIds) {
+            idsToDelete.add(id.toString());
+          }
+        }
+      }
+
+      // If no related IDs were found or list is empty, just delete the current document
+      if (idsToDelete.isEmpty) {
+        idsToDelete.add(documentId);
+      }
+
+      print('Deleting ${idsToDelete.length} documents: $idsToDelete');
+
+      // Use batch delete for all IDs
+      final batch = FirebaseFirestore.instance.batch();
+      for (final id in idsToDelete) {
+        batch.delete(FirebaseFirestore.instance.collection('history').doc(id));
+      }
+      await batch.commit();
+
+      // Refresh data after deletion
+      _fetchHistoryData();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Issue removed from history'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      print('Error deleting issue: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting issue: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showIssueDetails(Map<String, dynamic> item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 12,
+                spreadRadius: 2,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Center(
+                child: Container(
+                  width: 50,
+                  height: 6,
+                  margin: const EdgeInsets.only(top: 12, bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 36),
+                    Text(
+                      'Issue Details - ${item['title'] ?? 'Unknown'}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 20,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Warning icon section
+                      Center(
+                        child: Container(
+                          width: 80,
+                          height: 80,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[50],
+                            shape: BoxShape.circle,
+                          ),
+                          child: Image.asset(
+                            item['imageAsset'] ?? 'assets/images/warning.png',
+                            width: 60,
+                            height: 60,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Issue info card
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Iconsax.calendar,
+                                  size: 20,
+                                  color: Colors.grey[700],
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Detected on: ${_formatTimestamp(item['timestamp'])}',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Icon(
+                                  Iconsax.chart,
+                                  size: 20,
+                                  color: Colors.grey[700],
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Count: ${item['count'] ?? 1}',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Icon(
+                                  Iconsax.warning_2,
+                                  size: 20,
+                                  color: Colors.orange,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Status: Active Issue',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Description section
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue[100]!),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Iconsax.info_circle,
+                                  size: 20,
+                                  color: Colors.blue,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Issue Description',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              item['description'] ?? 'No description available',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[800],
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Action button - Delete only
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context); // Close details modal first
+                          _deleteHistoryItem(item['id'], item['relatedIds']);
+                        },
+                        icon: const Icon(Iconsax.trash),
+                        label: const Text('Delete Issue'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
-  List<Map<String, dynamic>> _processHistoryItems(
-      List<QueryDocumentSnapshot> docs) {
-    final items = <Map<String, dynamic>>[];
-    for (var doc in docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      final timestamp = data['timestamp'] as Timestamp?;
-      final date = timestamp?.toDate() ?? DateTime.now();
-      final scanType = data['scanType'] as String? ?? '';
-      final detections = (data['data'] as Map<String, dynamic>?)?['detections']
-      as List<dynamic>? ??
-          [];
+  String _formatTimestamp(dynamic timestamp) {
+    if (timestamp == null) return 'Unknown date';
 
-      IconData icon = Icons.search;
-      if (scanType == 'dashboard') {
-        icon = Icons.dashboard;
-      } else if (scanType.contains('battery')) {
-        icon = Icons.battery_charging_full;
-      } else if (scanType.contains('lock')) {
-        icon = Icons.lock_outline;
-      } else if (scanType.contains('security')) {
-        icon = Icons.security;
-      }
-
-      final timeString = timestamp != null
-          ? DateFormat('hh:mm a').format(date)
-          : 'Unknown time';
-
-      items.add({
-        'date': date,
-        'title': data['title'] ?? 'Scan Result',
-        'subtitle': data['body'] ?? 'No details available',
-        'time': timeString,
-        'icon': icon,
-        'read': data['read'] ?? false,
-        'docId': doc.id,
-        'detections': detections,
-      });
-    }
-    return items;
-  }
-
-  List<Map<String, dynamic>> _filterHistoryItems(
-      List<Map<String, dynamic>> items) {
-    final now = DateTime.now();
-    var filtered = items;
-
-    switch (_selectedFilter) {
-      case 'This Week':
-        filtered = filtered.where((item) => _isSameWeek(item['date'], now)).toList();
-        break;
-      case 'This Month':
-        filtered = filtered.where((item) => _isSameMonth(item['date'], now)).toList();
-        break;
-      case 'This Year':
-        filtered = filtered.where((item) => _isSameYear(item['date'], now)).toList();
-        break;
+    if (timestamp is Timestamp) {
+      final dateTime = timestamp.toDate();
+      return DateFormat('MMM d, yyyy - h:mm a').format(dateTime);
     }
 
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((item) {
-        final title = item['title'].toString().toLowerCase();
-        final subtitle = item['subtitle'].toString().toLowerCase();
-        return title.contains(_searchQuery) || subtitle.contains(_searchQuery);
-      }).toList();
+    return 'Unknown date';
+  }
+
+  Widget _buildStatusBadge(Map<String, dynamic> item) {
+    final count = item['count'] as int? ?? 1;
+
+    Color badgeColor;
+    String statusText;
+    IconData statusIcon;
+
+    if (count >= 3) {
+      badgeColor = Colors.red;
+      statusText = 'Critical';
+      statusIcon = Iconsax.danger;
+    } else {
+      badgeColor = Colors.orange;
+      statusText = 'Active';
+      statusIcon = Iconsax.warning_2;
     }
 
-    return filtered;
-  }
-
-  Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE67E5E)),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Loading history...',
-            style: TextStyle(
-              color: Colors.grey[700],
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState({String? message}) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.history,
-            size: 100,
-            color: Colors.grey[400],
-          ).animate().fadeIn(duration: 500.ms).scale(),
-          const SizedBox(height: 16),
-          Text(
-            message ?? 'No scan history found',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[700],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Your scan history will appear here',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => setState(() {}),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE67E5E),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            child: const Text(
-              'Refresh',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: 'Search history...',
-            prefixIcon: const Icon(Icons.search, color: Colors.grey),
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(vertical: 0),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDateFilter() {
-    return SliverToBoxAdapter(
-      child: Container(
-        height: 50,
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          children: [
-            _buildDateChip('All Time', Icons.history,
-                isSelected: _selectedFilter == 'All Time'),
-            _buildDateChip('This Week', Icons.calendar_today,
-                isSelected: _selectedFilter == 'This Week'),
-            _buildDateChip('This Month', Icons.calendar_month,
-                isSelected: _selectedFilter == 'This Month'),
-            _buildDateChip('This Year', Icons.date_range,
-                isSelected: _selectedFilter == 'This Year'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDateChip(String label, IconData icon, {bool isSelected = false}) {
     return Container(
-      margin: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        selected: isSelected,
-        label: Row(
-          children: [
-            Icon(icon, size: 18, color: isSelected ? Colors.white : Colors.black87),
-            const SizedBox(width: 4),
-            Text(label),
-          ],
-        ),
-        onSelected: (bool selected) {
-          setState(() {
-            _selectedFilter = label;
-          });
-        },
-        selectedColor: const Color(0xFFE67E5E),
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : Colors.black87,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        elevation: isSelected ? 2 : 0,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: badgeColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: badgeColor.withOpacity(0.5)),
       ),
-    );
-  }
-
-  Widget _buildHistoryList(List<Map<String, dynamic>> items) {
-    final groupedItems = _groupHistoryItemsByDate(items);
-
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-            (context, index) {
-          final date = groupedItems.keys.elementAt(index);
-          final items = groupedItems[date]!;
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHistoryGroup(DateFormat('MMMM d, y').format(date)),
-              ...items.map((item) => _buildHistoryItem(item)),
-            ],
-          );
-        },
-        childCount: groupedItems.length,
-      ),
-    );
-  }
-
-  Map<DateTime, List<Map<String, dynamic>>> _groupHistoryItemsByDate(
-      List<Map<String, dynamic>> items) {
-    final Map<DateTime, List<Map<String, dynamic>>> groupedItems = {};
-
-    for (var item in items) {
-      final date = DateTime(item['date'].year, item['date'].month, item['date'].day);
-      if (!groupedItems.containsKey(date)) {
-        groupedItems[date] = [];
-      }
-      groupedItems[date]!.add(item);
-    }
-
-    final sortedDates = groupedItems.keys.toList()..sort((a, b) => b.compareTo(a));
-    return Map.fromEntries(
-      sortedDates.map((date) => MapEntry(date, groupedItems[date]!)),
-    );
-  }
-
-  Widget _buildHistoryGroup(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey[800],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHistoryItem(Map<String, dynamic> item) {
-    final isRead = item['read'] as bool;
-    final docId = item['docId'] as String;
-
-    return GestureDetector(
-      onTap: () async {
-        if (!isRead) {
-          await _markAsRead(docId);
-        }
-        _showDetailDialog(item);
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(statusIcon, color: badgeColor, size: 12),
+          const SizedBox(width: 4),
+          Text(
+            statusText,
+            style: TextStyle(
+              color: badgeColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
-          ],
-          border: !isRead
-              ? Border.all(color: const Color(0xFFE67E5E), width: 2)
-              : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text(
+          'History',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        child: ListTile(
-          contentPadding: const EdgeInsets.all(16),
-          leading: Stack(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3EE),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  item['icon'] as IconData,
-                  color: const Color(0xFFE67E5E),
-                  size: 24,
-                ),
-              ),
-              if (!isRead)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE67E5E),
-                      shape: BoxShape.circle,
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Iconsax.refresh),
+            onPressed: _fetchHistoryData,
+          ),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Content
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _historyItems.isEmpty
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Iconsax.clipboard_close,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No active issues found',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[700],
                     ),
                   ),
-                ),
-            ],
-          ),
-          title: Text(
-            item['title'],
-            style: TextStyle(
-              fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
-              fontSize: 16,
-              color: Colors.grey[900],
-            ),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
-              Text(
-                item['subtitle'],
-                style: TextStyle(
-                  color: isRead ? Colors.grey[600] : Colors.black87,
-                  fontSize: 14,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                  const SizedBox(height: 8),
+                  Text(
+                    'Active issues detected during scan will appear here',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                item['time'],
-                style: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.2, end: 0);
-  }
-
-  Future<void> _markAsRead(String docId) async {
-    try {
-      await _firestore
-          .collection('users')
-          .doc(_auth.currentUser!.uid)
-          .collection('scanHistory')
-          .doc(docId)
-          .update({'read': true});
-    } catch (e) {
-      print('Error marking item as read: $e');
-    }
-  }
-
-  void _showDetailDialog(Map<String, dynamic> item) {
-    final detections = item['detections'] as List<dynamic>;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          item['title'],
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                item['subtitle'],
-                style: TextStyle(color: Colors.grey[700]),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Detected Issues:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              if (detections.isEmpty)
-                const Text('No issues detected in this scan.')
-              else
-                ...detections.map((detection) {
-                  final detectedClass =
-                      detection['predicted_class'] as String? ?? 'Unknown';
-                  final confidence =
-                      detection['confidence'] as double? ?? 0.0;
-                  final recommendation = _getRecommendation(detectedClass);
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
+            )
+                : RefreshIndicator(
+              onRefresh: _fetchHistoryData,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _historyItems.length,
+                itemBuilder: (context, index) {
+                  final item = _historyItems[index];
+                  return GestureDetector(
+                    onTap: () => _showIssueDetails(item),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 5,
+                            spreadRadius: 0,
+                          ),
+                        ],
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              detectedClass,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                // Warning icon
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange[50],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Image.asset(
+                                    item['imageAsset'] ?? 'assets/images/warning.png',
+                                    width: 100,
+                                    height: 100,
+                                    fit: BoxFit.fill,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+
+                                // Issue info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              item['title'] ?? 'Unknown Issue',
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          _buildStatusBadge(item),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Occurrence #${item['count'] ?? 1} • ${_formatTimestamp(item['timestamp'])}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Action row - Only View Details
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(12),
                               ),
                             ),
-                            Text(
-                              'Confidence: ${(confidence * 100).toStringAsFixed(0)}%',
-                              style: TextStyle(color: Colors.grey[600]),
+                            child: Row(
+                              children: [
+                                // View details button
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () => _showIssueDetails(item),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Iconsax.document,
+                                            size: 16,
+                                            color: Colors.blue[700],
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+
+                                            'View Details',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.blue[700],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                // Delete button
+                                Container(
+                                  height: 24,
+                                  width: 1,
+                                  color: Colors.grey[300],
+                                ),
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () => _deleteHistoryItem(item['id'], item['relatedIds']),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Iconsax.trash,
+                                            size: 16,
+                                            color: Colors.red,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Delete',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.red,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Recommendation: $recommendation',
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   );
-                }),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Close',
-              style: TextStyle(color: Color(0xFFE67E5E)),
+                },
+              ),
             ),
           ),
         ],
