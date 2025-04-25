@@ -962,7 +962,6 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
 
       final detection = detections[index];
       final title = detection['predicted_class'] as String? ?? 'Unknown Issue';
-      final confidence = detection['confidence'] as double? ?? 0.5;
 
       final historyQuery =
           await FirebaseFirestore.instance
@@ -975,7 +974,7 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
               .get();
 
       final count = historyQuery.docs.length + 1;
-      final technicalInfo = _getTechnicalInfo(title);
+      final technicalInfo = _getSymbolMeaning(title);
       final solution = _getSolution(title);
 
       final description = '''
@@ -998,7 +997,6 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
         await FirebaseFirestore.instance.collection('notifications').add({
           'title': title,
           'description': description,
-          'confidence': confidence,
           'imageAsset': _getImageAssetPath(title),
           'warningMessage': warningMessage,
           'timestamp': FieldValue.serverTimestamp(),
@@ -1010,7 +1008,6 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
       await FirebaseFirestore.instance.collection('history').add({
         'title': title,
         'description': description,
-        'confidence': confidence,
         'imageAsset': _getImageAssetPath(title),
         'count': count,
         'isShow': isShow,
@@ -1048,7 +1045,7 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
     }
   }
 
-  String _getTechnicalInfo(String detectedClass) {
+  String _getSymbolMeaning(String detectedClass) {
     final Map<String, String> technicalInfo = {
       'abs':
           'The Anti-lock Braking System (abs) warning indicates a potential malfunction in the system designed to prevent wheels from locking during braking. This critical safety feature maintains steering control during emergency stops by pulsing brake pressure automatically.',
@@ -1304,9 +1301,36 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                 color: Colors.black87,
               ),
             ),
+            SizedBox(width: 15,),
+            Text(
+              'Choose one to show the details :',
+              style: TextStyle(
+                fontSize: 14,
+                color:  Colors.red,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE67E5E).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: const Color(0xFFE67E5E).withOpacity(0.5),
+              width: 1,
+            ),
+          ),
+          child: Icon(
+            Iconsax.info_circle,
+            size: 20,
+            color: const Color(0xFFE67E5E),
+          ),
+        ),
+        const SizedBox(height: 12),
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1317,7 +1341,6 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
             final isSaved = _savedIssues[index] == true;
             final detectedClass =
                 detection['predicted_class'] as String? ?? 'Unknown';
-            final confidence = detection['confidence'] as double? ?? 0.5;
             print("----****----");
             print(detectedClass);
             return GestureDetector(
@@ -1410,14 +1433,6 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                                   ),
                                 ),
                             ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Confidence: ${(confidence * 100).toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
                           ),
                         ],
                       ),
@@ -1663,13 +1678,6 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                                     ),
                                   ],
                                 ),
-                                if (detections[_currentDetectionIndex!]['confidence'] !=
-                                    null)
-                                  _buildSeverityIndicator(
-                                    detections[_currentDetectionIndex!]['confidence']
-                                            as double? ??
-                                        0.5,
-                                  ),
                               ],
                             ),
                             const SizedBox(height: 16),
@@ -1720,7 +1728,7 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        'Detected now',
+                                        "Detected now",
                                         style: TextStyle(
                                           fontSize: 14,
                                           color: Colors.grey[700],
@@ -1728,56 +1736,48 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 16),
                                   Row(
                                     children: [
-                                      Icon(
-                                        Iconsax.chart,
-                                        size: 20,
-                                        color: Colors.grey[700],
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Confidence: ${((detections[_currentDetectionIndex!]['confidence'] as double? ?? 0.5) * 100).toStringAsFixed(1)}%',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey[700],
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Symbol Meaning:',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              _getSymbolMeaning(
+                                                detections[_currentDetectionIndex!]['predicted_class']
+                                                        as String? ??
+                                                    'Unknown',
+                                              ),
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                height: 1.5,
+                                                color: Colors.grey[800],
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 16),
-                                  Text(
-                                    'Technical Information:',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _getTechnicalInfo(
-                                      detections[_currentDetectionIndex!]['predicted_class']
-                                              as String? ??
-                                          'Unknown',
-                                    ),
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      height: 1.4,
-                                      color: Colors.grey[800],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
+                                  const Text(
                                     'Recommended Action:',
                                     style: TextStyle(
-                                      fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
+                                      fontSize: 15,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 6),
                                   Text(
                                     _getRecommendation(
                                       detections[_currentDetectionIndex!]['predicted_class']
@@ -1786,11 +1786,10 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                                     ),
                                     style: TextStyle(
                                       fontSize: 14,
-                                      height: 1.4,
+                                      height: 1.5,
                                       color: Colors.grey[800],
                                     ),
                                   ),
-                                  const SizedBox(height: 16),
                                 ],
                               ),
                             ),
@@ -1798,69 +1797,29 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
                         ),
                       ),
                     ),
-                  if (detections.isEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.green[200]!),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: ElevatedButton(
+                      onPressed: widget.onRetry,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE67E5E),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
                       ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Iconsax.tick_circle,
-                            color: Colors.green[600],
-                            size: 48,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'All Clear!',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green[800],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'No dashboard warning lights detected in this scan.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.green[700],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: widget.onRetry,
-                          icon: const Icon(Iconsax.refresh, size: 18),
-                          label: const Text(
-                            'New Scan',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey[200],
-                            foregroundColor: Colors.black87,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
+                      child: const Text(
+                        'Scan Again',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -1869,6 +1828,32 @@ class _ScanResultsScreenState extends State<ScanResultsScreen>
       ),
     );
   }
+}
+
+String _getSymbolMeaning(String detectedClass) {
+  final Map<String, String> technicalInfo = {
+    'abs':
+        'The Anti-lock Braking System (abs) warning indicates a potential malfunction in the system designed to prevent wheels from locking during braking. This critical safety feature maintains steering control during emergency stops by pulsing brake pressure automatically.',
+    'airbag':
+        'The airbag warning light indicates a potential issue with the Supplemental Restraint System (SRS). This could affect deployment of airbags during a collision, compromising occupant safety in the event of an accident.',
+    'dipped beam':
+        'The dipped beam warning indicates a problem with your vehicle\'s low beam headlights. This affects visibility during night driving and may result in insufficient illumination of the road ahead.',
+    'power steering':
+        'The power steering warning indicates a malfunction in the power steering system. This can result in significantly increased steering effort, making the vehicle more difficult to maneuver, especially at low speeds.',
+    'hand brake':
+        'The hand brake (parking brake) warning indicates either that the parking brake is engaged while driving or there is a malfunction in the parking brake system. This can cause premature brake wear and reduced braking effectiveness.',
+    'engine':
+        'The engine warning light (Check engine) indicates the onboard diagnostics system has detected an issue with the engine, emission control system, or related components. This could affect performance, fuel economy, and emissions.',
+    'tire pressure':
+        'The tire pressure Monitoring System (TPMS) warning indicates one or more tires are significantly under or over-inflated. Improper tire pressure can lead to reduced handling, decreased fuel efficiency, and increased risk of blowouts.',
+    'stability control':
+        'The Electronic stability control (ESC) warning indicates a potential issue with the system designed to improve vehicle stability. This affects the vehicle\'s ability to detect and reduce skidding during cornering or emergency maneuvers.',
+    'seatbelt':
+        'The seatbelt warning indicates that one or more occupants are not wearing their seatbelts. seatbelts are a critical safety feature that significantly reduces the risk of injury in the event of a collision.',
+  };
+
+  return technicalInfo[detectedClass] ??
+      'This warning light indicates a potential issue with your vehicle that requires attention. It affects vehicle operation and may pose safety concerns if left unaddressed.';
 }
 
 class MyHttpOverrides extends HttpOverrides {

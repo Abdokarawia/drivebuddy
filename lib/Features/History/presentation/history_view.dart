@@ -643,7 +643,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
-
                                             'View Details',
                                             style: TextStyle(
                                               fontSize: 13,

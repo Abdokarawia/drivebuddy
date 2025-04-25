@@ -223,24 +223,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             Row(
                               children: [
                                 Icon(
-                                  Iconsax.chart,
-                                  size: 20,
-                                  color: Colors.grey[700],
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Confidence: ${item['confidence'] ?? 1}',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[700],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Icon(
                                   Iconsax.warning_2,
                                   size: 20,
                                   color: Colors.red,
@@ -533,7 +515,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                         overflow:
                                         TextOverflow.ellipsis,
                                       ),
-
                                     ],
                                   ),
                                 ),
